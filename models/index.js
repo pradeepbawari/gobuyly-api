@@ -33,7 +33,7 @@ const sequelize = new Sequelize(
     dialectOptions: {
       ssl: {
         rejectUnauthorized: true,
-         If TiDB requires a CA file, uncomment below:
+         //If TiDB requires a CA file, uncomment below:
         ca: process.env.DB_SSL_CA
       },
     },
