@@ -53,7 +53,7 @@ const createProducts = async (req, res) => {
     // 3. Process variants
     if (productId &&variants || variants.length > 0) {
       const variantPromises = variants.map(async (variant) => {
-        const { price, sale_price, stock, deleted, materials, colour, dimensions } = variant;
+        const { price, sale_price, stock, deleted, materials, colour, dimensions, sku, color_id, company_id } = variant;
         // Create product variant
         return db.Variant.create({
           product_id: productId,
@@ -63,7 +63,10 @@ const createProducts = async (req, res) => {
           stock,
           materials,
           deleted,
-          dimensions
+          dimensions,
+          sku,
+          color_id,
+          company_id
         });              
       });
   
@@ -98,7 +101,7 @@ const fetchAfterUpdate = async (productId) => {
           model: db.Variant,
           as: "variants",
           required: false,
-          attributes: ["id", "colour", "dimensions", "materials", "sale_price", "colour","stock"]
+          attributes: ["id", "colour", "dimensions", "materials", "sale_price", "color_id","stock","company_id","sku"]
         },
       ],
     });
@@ -210,7 +213,7 @@ const updateProducts = async (req, res) => {
     // 2. Update Variants
     if (variants && variants.length > 0) {
       for (const variant of variants) {
-        const { variant_id, price, sale_price, stock, deleted, materials, dimensions, colour } = variant;
+        const { variant_id, price, sale_price, stock, deleted, materials, dimensions, colour, color_id, company_id, sku } = variant;
 
         // Check if the variant exists
         if (variant_id) {
@@ -223,7 +226,7 @@ const updateProducts = async (req, res) => {
               // Update the existing variant
               console.log(`Updating variant with ID: ${variant_id}`);
               await db.Variant.update(
-                { colour, price, sale_price, stock, dimensions, materials },
+                { colour, price, sale_price, stock, dimensions, materials, color_id, company_id, sku },
                 { where: { id: variant_id } }
               );
             } else {
@@ -241,7 +244,10 @@ const updateProducts = async (req, res) => {
             stock,
             materials,
             deleted,
-            dimensions
+            dimensions,
+            color_id,
+            company_id,
+            sku
           });
         }
       }
@@ -311,7 +317,7 @@ const filterProducts = async (req, res) => {
           as: "variants",
           required: false,
           where: { deleted: 0 },
-          attributes: ["id", "colour", "dimensions", "materials", "sale_price", "colour","stock"],
+          attributes: ["id", "colour", "dimensions", "materials", "price", "sale_price", "colour","stock","color_id","company_id","sku"],
           include: [
             {
               model: db.materialsList,

@@ -1,5 +1,6 @@
 // controllers/userController.js
 const db = require('../models');
+const { fn, col } = require("sequelize");
 const { Comments } = require('../models');
 
 // Create User Comment
@@ -49,8 +50,20 @@ const getAll = async (req, res) => {
   try {
     const { type } = req.params;
     const model = getModel(type);
-    const list = await model.findAll();
-    res.json(list);
+    // const list = await model.findAll();
+    // res.json(list);
+    const [list, meta] = await Promise.all([
+      model.findAll(),
+      model.findOne({
+        attributes: [[fn("MAX", col("updatedAt")), "lastUpdated"]],
+        raw: true
+      })
+    ]);
+
+    res.json({
+      lastUpdated: meta.lastUpdated,
+      data: list
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -107,10 +120,31 @@ const deleteItem = async (req, res) => {
   }
 };
 
+const getLastUpdated = async (req, res) => {
+  try {
+    const model = getModel(req.params.type);
+    const lastUpdated = await checkLastUpdated(model);
+
+    res.json({ lastUpdated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+const checkLastUpdated = async (model) => {
+  const result = await model.findOne({
+    attributes: [[fn("MAX", col("updatedAt")), "lastUpdated"]],
+    raw: true
+  });
+console.log(result?.lastUpdated, 'model')
+  return result?.lastUpdated || null;
+}
+
 // Helper to resolve model by type
 function getModel(type) {
   switch (type) {
     case 'companies': return db.companyNew;
+    case 'colours': return db.Color;
     case 'dealers': return db.Dealer;
     case 'materials': return db.materialsList;
     case 'dimensiontype': return db.dimensionType;
@@ -125,5 +159,6 @@ module.exports = {
   create,
   getAll,
   updateItem,
-  deleteItem
+  deleteItem,
+  getLastUpdated
 };

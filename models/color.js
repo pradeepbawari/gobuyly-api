@@ -18,8 +18,11 @@ module.exports = (sequelize, DataTypes) => {
       },
     },
     {
-      tableName: "colors",
-      timestamps: false, // No createdAt or updatedAt fields
+      tableName: "Colors",
+      timestamps: true, // No createdAt or updatedAt fields
+      createdAt: "createdAt",  // default
+      updatedAt: "updatedAt"   // default
+
     }
   );
 

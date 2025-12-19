@@ -30,9 +30,9 @@ const app = express();
 
 const corsOptions = {
   // local
-  // origin: ['http://gobuyly.com', 'http://admin.gobuyly.com', 'http://147.93.28.231', 'http://srv748278.hstgr.cloud', 'http://localhost:5173', 'http://localhost:5174'], 
+  origin: ['http://gobuyly.com', 'http://admin.gobuyly.com', 'http://147.93.28.231', 'http://srv748278.hstgr.cloud', 'http://localhost:5173', 'http://localhost:5174'], 
   // production
-   origin: ['http://admin.gobuyly.com', 'https://147.93.28.231', 'https://srv748278.hstgr.cloud', 'http://srv748278.hstgr.cloud', 'https://gobuyly.com'], 
+  //  origin: ['http://admin.gobuyly.com', 'https://147.93.28.231', 'https://srv748278.hstgr.cloud', 'http://srv748278.hstgr.cloud', 'https://gobuyly.com'], 
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true, // Required if using cookies or tokens
@@ -43,10 +43,10 @@ app.options('*', cors(corsOptions)); // Handle preflight requests
 
 
 // Set the port production
- const PORT = process.env.PORT || 5000;
+//  const PORT = process.env.PORT || 5000;
 
 // Set the port local
-// const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(bodyParser.json());
@@ -73,6 +73,7 @@ app.use('/api/invoice', authenticate, invoiceRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/setting', authenticate, createUpload, settingRoutes);
 app.use('/api/comments', authenticate, commentRoutes);
+app.use('/api/front', commonRoutes);
 app.use('/api', authenticate, commonRoutes);
 app.use('/api/export', authenticate, excelExportRoutes);
  

@@ -5,6 +5,7 @@ module.exports = (sequelize, DataTypes) => {
     name: { type: DataTypes.STRING, allowNull: false },
     address: { type: DataTypes.TEXT },
     contact: { type: DataTypes.STRING },
+    // updatedAt: {type: DataTypes.timestamps}
   }, {
     tableName: 'companies_new',
     timestamps: true,
