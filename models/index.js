@@ -4,14 +4,39 @@ const fs = require('fs');
 const path = require('path');
 const basename = path.basename(__filename);
 
+//const sequelize = new Sequelize(
+  //process.env.DB_NAME,
+  //process.env.DB_USER,
+  //process.env.DB_PASSWORD,
+  //{
+    //host: process.env.DB_HOST,
+    //dialect: 'mysql',
+    //logging: false, 
+  //}
+//);
+
+// below code for TiDB
 const sequelize = new Sequelize(
   process.env.DB_NAME,
   process.env.DB_USER,
   process.env.DB_PASSWORD,
   {
     host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
     dialect: 'mysql',
-    logging: false, 
+    dialectModule: require('mysql2'),
+	logging: false,
+    logging: (sql, timing) => {
+    console.log(`[SQL] ${new Date().toISOString()} - ${sql} - Duration: ${timing} ms`);
+  },
+  benchmark: true, // ⬅️ enables timing info
+    dialectOptions: {
+      ssl: {
+        rejectUnauthorized: true,
+         If TiDB requires a CA file, uncomment below:
+        ca: process.env.DB_SSL_CA
+      },
+    },
   }
 );
 
