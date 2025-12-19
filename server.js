@@ -21,6 +21,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const commentRoutes = require('./routes/commentRoutes');
 const commonRoutes = require('./routes/commonRoutes');
 const excelExportRoutes = require('./routes/excelExportRoutes');
+//const webhookRoutes = require("./routes/webhooksRoutes");
 
 // Import the upload middleware
 const { upload, uploadPDF } = require('./uploadImages/imageUpload'); 
@@ -50,7 +51,7 @@ const PORT = process.env.PORT || 7000;
 
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.use('/api/webhooks', webhookRoutes);
+//app.use('/api/webhooks', webhookRoutes);
 
 app.use(bodyParser.json());
 app.use(express.json());
