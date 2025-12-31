@@ -31,7 +31,7 @@ const app = express();
 
 const corsOptions = {
   // local
-  //origin: ['http://gobuyly.com', 'http://admin.gobuyly.com', 'http://147.93.28.231', 'http://srv748278.hstgr.cloud', 'http://localhost:5173', 'http://localhost:5174'], 
+  //origin: ['http://gobuyly.com', 'http://admin.gobuyly.com', 'http://147.93.28.231', 'http://srv748278.hstgr.cloud', 'http://localhost:5173', 'http://localhost:5174','http://localhost:3000'], 
   // production
     origin: ['http://gobuyly.com', 'http://www.gobuyly.com', 'http://api.gobuyly.com', 'https://gobuyly.com', 'https://www.gobuyly.com', 'https://api.gobuyly.com', 'https://www.api.gobuyly.com'], 
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -47,7 +47,7 @@ app.options('*', cors(corsOptions)); // Handle preflight requests
 const PORT = process.env.PORT || 7000;
 
 // Set the port local
-//const PORT = process.env.PORT || 3000;
+//const PORT = process.env.PORT || 4000;
 
 app.use(bodyParser.urlencoded({ extended: true }));
 

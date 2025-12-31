@@ -53,7 +53,7 @@ const createProducts = async (req, res) => {
     // 3. Process variants
     if (productId &&variants || variants.length > 0) {
       const variantPromises = variants.map(async (variant) => {
-        const { price, sale_price, stock, deleted, materials, colour, dimensions, sku, color_id, company_id } = variant;
+        const { price, sale_price, stock, deleted, materials, colour, dimensions, sku, color_id, company_id, size, title } = variant;
         // Create product variant
         return db.Variant.create({
           product_id: productId,
@@ -66,7 +66,9 @@ const createProducts = async (req, res) => {
           dimensions,
           sku,
           color_id,
-          company_id
+          company_id,
+		  size,
+		  title
         });              
       });
   
@@ -101,7 +103,7 @@ const fetchAfterUpdate = async (productId) => {
           model: db.Variant,
           as: "variants",
           required: false,
-          attributes: ["id", "colour", "dimensions", "materials", "sale_price", "color_id","stock","company_id","sku"]
+          attributes: ["id", "colour", "dimensions", "materials", "sale_price", "color_id","stock","company_id","sku", "size", "title"]
         },
       ],
     });
@@ -213,20 +215,20 @@ const updateProducts = async (req, res) => {
     // 2. Update Variants
     if (variants && variants.length > 0) {
       for (const variant of variants) {
-        const { variant_id, price, sale_price, stock, deleted, materials, dimensions, colour, color_id, company_id, sku } = variant;
+        const { variant_id, price, sale_price, stock, deleted, materials, dimensions, colour, color_id, company_id, sku, size, title } = variant;
 
         // Check if the variant exists
         if (variant_id) {
           if (deleted === true) {
-            console.log(`Deleting variant with ID: ${variant_id}`);
+            //console.log(`Deleting variant with ID: ${variant_id}`);
             await db.Variant.destroy({ where: { id: variant_id } });
           } else {
             const existingVariant = await db.Variant.findOne({ where: { id: variant_id, product_id: id } });
             if (existingVariant) {
               // Update the existing variant
-              console.log(`Updating variant with ID: ${variant_id}`);
+              //console.log(`Updating variant with ID: ${variant_id}`);
               await db.Variant.update(
-                { colour, price, sale_price, stock, dimensions, materials, color_id, company_id, sku },
+                { colour, price, sale_price, stock, dimensions, materials, color_id, company_id, sku, size, title },
                 { where: { id: variant_id } }
               );
             } else {
@@ -235,7 +237,7 @@ const updateProducts = async (req, res) => {
           }
         } else {
           // Create a new variant if `variant_id` is not provided
-          console.log(`Creating new variant for product ID: ${id}`);
+          //console.log(`Creating new variant for product ID: ${id}`);
           await db.Variant.create({
             product_id: id,
             colour,
@@ -247,7 +249,9 @@ const updateProducts = async (req, res) => {
             dimensions,
             color_id,
             company_id,
-            sku
+            sku,
+			size,
+			title
           });
         }
       }
@@ -317,7 +321,7 @@ const filterProducts = async (req, res) => {
           as: "variants",
           required: false,
           where: { deleted: 0 },
-          attributes: ["id", "colour", "dimensions", "materials", "price", "sale_price", "colour","stock","color_id","company_id","sku"],
+          attributes: ["id", "colour", "dimensions", "materials", "price", "sale_price", "colour","stock","color_id","company_id","sku","size","title"],
           include: [
             {
               model: db.materialsList,
@@ -398,6 +402,140 @@ const filterProducts = async (req, res) => {
   } catch (error) {
     console.error("Error fetching products:", error);
     res.status(500).json({ error: "Failed to fetch products", message: error.message });
+  }
+};
+
+const filterProductsNew = async (req, res) => {
+  try {
+    const { limit = 100, offset = 0, orderBy, filters } = req.body;
+
+    const parsedLimit = parseInt(limit, 10);
+    const parsedOffset = parseInt(offset, 10);
+
+    const orderByCondition = orderBy?.length
+      ? [[orderBy[0].colId, orderBy[0].sort]]
+      : [["createdAt", "DESC"]];
+
+    // Construct the where condition dynamically
+    let whereCondition = {};
+
+    if (filters) {
+      if (filters.parent_id === null) {
+        whereCondition.subcategory_id = filters.id || filters.category_id;
+      } else if (filters.parent_id !== undefined) {
+        whereCondition.subcategory_id = filters.parent_id;
+      } else {
+        whereCondition = { ...filters };
+      }
+    }
+
+    // Fetch variants (added product_id)
+    const variants = await db.Variant.findAndCountAll({
+      attributes: [
+        "id",
+        "product_id", // ✅ added
+        "price",
+        "sale_price",
+        "stock",
+        "sku",
+        "size",
+        "title",
+      ],
+      limit: parsedLimit,
+      offset: parsedOffset,
+      col: "id",
+    });
+
+    // Get variant IDs
+    const variantIds = variants.rows.map(v => v.id);
+
+    let imagesMap = new Map();
+
+    if (variantIds.length > 0) {
+      const productImages = await db.ProductImage.findAll({
+        where: {
+          product_id: { [Op.in]: variantIds },
+        },
+        attributes: ["id", "product_id", "image_id"],
+      });
+
+      const imageIds = productImages.map(pi => pi.image_id).filter(Boolean);
+
+      if (imageIds.length > 0) {
+        const images = await db.Image.findAll({
+          where: {
+            id: { [Op.in]: imageIds },
+          },
+          attributes: ["id", "image_url", "public_id"],
+        });
+
+        const imageDataMap = new Map(
+          images.map(img => [img.id, img.toJSON()])
+        );
+
+        productImages.forEach(pi => {
+          const imageData = imageDataMap.get(pi.image_id);
+          if (imageData) {
+            if (!imagesMap.has(pi.product_id)) {
+              imagesMap.set(pi.product_id, []);
+            }
+            imagesMap.get(pi.product_id).push({
+              id: pi.id,
+              product_id: pi.product_id,
+              image_id: pi.image_id,
+              ...imageData,
+            });
+          }
+        });
+      }
+    }
+
+    // 🔹 Fetch product names
+    const productIds = [
+      ...new Set(
+        variants.rows.map(v => v.product_id).filter(Boolean)
+      ),
+    ];
+
+    let productNameMap = new Map();
+
+    if (productIds.length > 0) {
+      const products = await db.Product.findAll({
+        where: { id: { [Op.in]: productIds } },
+        attributes: ["id", "name"],
+      });
+
+      productNameMap = new Map(
+        products.map(p => [p.id, p.name])
+      );
+    }
+
+    // Process variants with images + product name
+    const processedVariants = variants.rows.map(variant => {
+      const variantData = variant.toJSON();
+      const images = imagesMap.get(variantData.id) || [];
+
+      return {
+        ...variantData,
+        title: JSON.parse(variantData.title),
+        product_name: productNameMap.get(variantData.product_id) || null, // ✅
+        images,
+        primary_image: images.length > 0 ? images[0] : null,
+      };
+    });
+
+    res.json({
+      variants: {
+        count: variants.count,
+        rows: processedVariants,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching variants:", error);
+    res.status(500).json({
+      error: "Failed to fetch variants",
+      message: error.message,
+    });
   }
 };
 
@@ -502,5 +640,6 @@ module.exports = {
   deleteProducts,
   filterProducts,
   filterUserProducts,
-  fetchSingleProduct
+  fetchSingleProduct,
+  filterProductsNew
 };

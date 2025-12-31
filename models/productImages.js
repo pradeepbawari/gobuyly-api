@@ -19,6 +19,14 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false,
     },
+	file_hash: {
+        type: DataTypes.STRING(64),
+        unique: true,
+      },
+  image_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
     }, {
     tableName: 'productimages',
     timestamps: true,
@@ -27,3 +35,4 @@ module.exports = (sequelize, DataTypes) => {
   // Return the model
   return Productimages;
 };
+

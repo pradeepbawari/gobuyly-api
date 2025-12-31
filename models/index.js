@@ -4,41 +4,41 @@ const fs = require('fs');
 const path = require('path');
 const basename = path.basename(__filename);
 
-//const sequelize = new Sequelize(
-  //process.env.DB_NAME,
-  //process.env.DB_USER,
-  //process.env.DB_PASSWORD,
-  //{
-    //host: process.env.DB_HOST,
-    //dialect: 'mysql',
-    //logging: false, 
-  //}
-//);
-
-// below code for TiDB
 const sequelize = new Sequelize(
   process.env.DB_NAME,
   process.env.DB_USER,
   process.env.DB_PASSWORD,
   {
     host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
     dialect: 'mysql',
-    dialectModule: require('mysql2'),
-	logging: false,
-    logging: (sql, timing) => {
-    console.log(`[SQL] ${new Date().toISOString()} - ${sql} - Duration: ${timing} ms`);
-  },
-  benchmark: true, // ⬅️ enables timing info
-    dialectOptions: {
-      ssl: {
-        rejectUnauthorized: true,
-         //If TiDB requires a CA file, uncomment below:
-        ca: process.env.DB_SSL_CA
-      },
-    },
+    logging: false, 
   }
 );
+
+// below code for TiDB
+//const sequelize = new Sequelize(
+  //process.env.DB_NAME,
+  //process.env.DB_USER,
+  //process.env.DB_PASSWORD,
+  //{
+    //host: process.env.DB_HOST,
+    //port: process.env.DB_PORT,
+    //dialect: 'mysql',
+    //dialectModule: require('mysql2'),
+	//logging: false,
+    //logging: (sql, timing) => {
+    //console.log(`[SQL] ${new Date().toISOString()} - ${sql} - Duration: ${timing} ms`);
+  //},
+  //benchmark: true, // ⬅️ enables timing info
+    //dialectOptions: {
+      //ssl: {
+        //rejectUnauthorized: true,
+         ////If TiDB requires a CA file, uncomment below:
+        //ca: process.env.DB_SSL_CA
+      //},
+    //},
+  //}
+//);
 
 const db = {};
 db.Sequelize = Sequelize;  // <-- Attach Sequelize to the db object
@@ -68,6 +68,7 @@ db.companyNew = require('./companyNew')(sequelize, DataTypes);
 db.materialsList = require('./materials_list')(sequelize, DataTypes);
 db.dimensionType = require('./dimension_type')(sequelize, DataTypes);
 db.dimensionUnit = require('./dimension_unit')(sequelize, DataTypes);
+db.Image = require('./image')(sequelize, DataTypes);
 // Define relationships
 
 db.Product.belongsTo(db.Category, { foreignKey: 'category_id', as: 'category' });
@@ -109,8 +110,8 @@ db.Order.hasMany(db.OrderItem, { foreignKey: "order_id" });
 db.OrderItem.belongsTo(db.Order, { foreignKey: "order_id" });
 db.OrderItem.belongsTo(db.Product, { foreignKey: "product_id" });
 
-db.ProductImage.belongsTo(db.Product, { foreignKey: 'productId', as: 'product'});
-db.Product.hasMany(db.ProductImage, { foreignKey: 'productId',as: 'images', onDelete: 'CASCADE',});
+//db.ProductImage.belongsTo(db.Product, { foreignKey: 'productId', as: 'product'});
+//db.Product.hasMany(db.ProductImage, { foreignKey: 'productId',as: 'images', onDelete: 'CASCADE',});
 
 db.ProductImage.belongsTo(db.Product, { foreignKey: 'product_id', as: 'productT'});
 db.Product.hasMany(db.ProductImage, { foreignKey: 'product_id', as: 'imagesT', onDelete: 'CASCADE',});
@@ -155,6 +156,26 @@ db.materialsList.hasMany(db.Variant, {
   sourceKey: 'id',
   as: 'variants',
 });
+
+
+// Image ↔ ProductImage
+db.Image.hasMany(db.ProductImage, {
+  foreignKey: 'image_id',
+});
+db.ProductImage.belongsTo(db.Image, {
+  foreignKey: 'image_id',
+});
+
+// Image ↔ OrderImage
+db.Image.hasMany(db.OrderImage, {
+  foreignKey: 'image_id',
+});
+db.OrderImage.belongsTo(db.Image, {
+  foreignKey: 'image_id',
+});
+
+
+
 
 // Add this to your Subcategory model (if not already defined)
 // In your Subcategory model:

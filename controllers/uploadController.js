@@ -6,15 +6,19 @@ const { upload, uploadImagesToCloudinary, saveImagesToDatabase, updateImagesToDa
 // Create a new category
 const createUpload = async (req, res) => {
   try {
+	  
     const { id, page } = req.body;
     
     if (!id && !req.files) {
       return res.status(400).json({ error: 'field is required' });
     }
-    const uploadedImageUrls = await uploadImagesToCloudinary(req.files);
+    //const uploadedImageUrls1 = await uploadImagesToCloudinary(req.files);
+	// Save the Cloudinary URLs to the database (ProductImages table)
+    //const images1 = await saveImagesToDatabase(uploadedImageUrls, id, page);
+	
+	const uploadedImages = await uploadImagesToCloudinary(req.files);
+	const images = await saveImagesToDatabase(uploadedImages, id, page);
 
-    // Save the Cloudinary URLs to the database (ProductImages table)
-    const images = await saveImagesToDatabase(uploadedImageUrls, id, page);
 
     res.status(200).json({
       message: 'Images uploaded and saved successfully!',
@@ -28,18 +32,18 @@ const createUpload = async (req, res) => {
 
 const deleteUpload = async (req, res) => {
     try {
-      const { productId, imageId, publicId, page } = req.body;
+      const { pImageId, productId, imageId, publicId, page } = req.body;
       if (!productId, !imageId, !publicId) {
         return res.status(400).json({ error: 'All fields are required' });
       }
-      const images = await deleteImagesToDatabase(productId, imageId, publicId, page);
+      const images = await deleteImagesToDatabase(pImageId, productId, imageId, publicId, page);
       res.status(201).json({ message: 'Image update successfully', images });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
   };
 
-const getAllUpload = async (req, res) => {
+const getAllUpload1 = async (req, res) => {
   try {
     const { productId, page } = req.body;
 
@@ -47,7 +51,7 @@ const getAllUpload = async (req, res) => {
             where: { product_id: productId },
             attributes: ['id', 'image_url', 'public_id'],  // Return only the image data
           }) : await db.OrderImage.findAll({
-            where: { order_id: productId },
+            where: { order_id:  productId },
             attributes: ['id', 'image_url', 'public_id'],  // Return only the image data
           });
     if (images.length === 0) {
@@ -63,6 +67,48 @@ const getAllUpload = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+const getAllUpload = async (req, res) => {
+  try {
+    const { productId } = req.body;
+
+    const images = await db.ProductImage.findAll({
+      where: { product_id: productId },
+	  attributes:['id'],
+      include: [
+        {
+          model: db.Image,
+          attributes: ['id', 'image_url', 'public_id'],
+          required: true,
+        },
+      ],
+    });
+
+    if (!images.length) {
+      return res.status(200).json({
+        message: 'No images found',
+        images: [],
+      });
+    }
+
+    const formattedImages = images.map(item => ({
+      id: item.Image.id,
+      image_url: item.Image.image_url,
+      public_id: item.Image.public_id,
+	  pImageId: item.id
+    }));
+    return res.status(200).json({
+      message: 'Images fetched successfully',
+      images: formattedImages,
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+
 
 const uploadPDF = async (req, res) => {
   try {

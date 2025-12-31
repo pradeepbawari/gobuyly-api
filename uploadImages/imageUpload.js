@@ -1,9 +1,8 @@
-// imageUpload.js
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
+const crypto = require('crypto');
 const db = require("../models");
-const path = require('path');
-const { ProductImage, OrderImage, Setting } = require('../models'); // Adjust path if needed
+const { ProductImage, OrderImage, Setting } = require('../models');
 
 // ------------------------
 // Cloudinary Configuration
@@ -17,35 +16,91 @@ cloudinary.config({
 // ------------------------
 // Multer Memory Storage
 // ------------------------
-const upload = multer({ storage: multer.memoryStorage() }); // For images
-const uploadPDF = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } }); // PDFs
+const upload = multer({ storage: multer.memoryStorage() });
+const uploadPDF = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 // ------------------------
-// Upload images to Cloudinary
+// Generate SHA-256 Hash
 // ------------------------
+const generateHash = (buffer) => crypto.createHash("sha256").update(buffer).digest("hex");
+
+// ------------------------
+// Upload images to Cloudinary (with hash check)
+// ------------------------
+const uploadImagesToCloudinary1 = async (files, page = 'productPage') => {
+  const uploadedImages = [];
+
+  for (const file of files) {
+    // 1️⃣ Generate hash
+    const fileHash = generateHash(file.buffer);
+
+    // 2️⃣ Select correct model
+    const ImageModel = page === 'productPage' ? ProductImage : OrderImage;
+
+    // 3️⃣ Check DB for existing image
+    const existingImage = await ImageModel.findOne({ where: { file_hash: fileHash } });
+
+    if (existingImage) {
+      // Reuse existing image
+      uploadedImages.push({
+        public_id: existingImage.public_id,
+        large_url: existingImage.image_url,
+        thumbnail_url: existingImage.image_thumbnail_url || null,
+        file_hash: existingImage.file_hash,
+        reused: true
+      });
+      continue;
+    }
+
+    // 4️⃣ Upload to Cloudinary (new image)
+    const result = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: 'products', public_id: fileHash, overwrite: false },
+        (error, result) => error ? reject(error) : resolve(result)
+      );
+      stream.end(file.buffer);
+    });
+
+    uploadedImages.push({
+      public_id: result.public_id,
+      large_url: cloudinary.url(result.public_id, { width: 600, height: 780, crop: "limit", quality: "auto", fetch_format: "auto" }),
+      thumbnail_url: cloudinary.url(result.public_id, { width: 290, height: 377, crop: "fit", quality: "auto", fetch_format: "auto" }),
+      file_hash: fileHash,
+      reused: false
+    });
+  }
+
+  return uploadedImages;
+};
+
 const uploadImagesToCloudinary = async (files) => {
   const uploadedImages = [];
 
   for (const file of files) {
-    await new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        { folder: 'products' },
-        (error, result) => {
-          if (error) return reject(error);
+    const fileHash = generateHash(file.buffer);
 
-          const publicId = result.public_id;
+    // 1️⃣ Check if image exists in central Images table
+    let image = await db.Image.findOne({ where: { file_hash: fileHash } });
 
-          uploadedImages.push({
-            public_id: publicId,
-            large_url: cloudinary.url(publicId, { width: 600, height: 780, crop: "limit", quality: "auto", fetch_format: "auto" }),
-            thumbnail_url: cloudinary.url(publicId, { width: 290, height: 377, crop: "fit", quality: "auto", fetch_format: "auto" }),
-          });
+    if (!image) {
+      // 2️⃣ Upload to Cloudinary
+      const result = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: 'products', public_id: fileHash, overwrite: false },
+          (error, result) => error ? reject(error) : resolve(result)
+        );
+        stream.end(file.buffer);
+      });
 
-          resolve();
-        }
-      );
-      stream.end(file.buffer);
-    });
+      // 3️⃣ Save in Images table
+      image = await db.Image.create({
+        public_id: result.public_id,
+        image_url: result.secure_url,
+        file_hash: fileHash
+      });
+    }
+
+    uploadedImages.push(image); // contains id, public_id, url, file_hash
   }
 
   return uploadedImages;
@@ -54,115 +109,81 @@ const uploadImagesToCloudinary = async (files) => {
 // ------------------------
 // Save images to database
 // ------------------------
-const saveImagesToDatabase = async (imageUrls, productId, productPage) => {
+const saveImagesToDatabase1 = async (imageUrls, productId, productPage) => {
   if (productPage === 'productPage') {
     return db.ProductImage.bulkCreate(
       imageUrls.map((url) => ({
         image_url: url.large_url,
         image_thumbnail_url: url.thumbnail_url,
-        product_id: productId,
-        public_id: url.public_id
-      }))
+        product_id: productId,        // ✅ keep your original condition
+        public_id: url.public_id,
+        file_hash: url.file_hash       // ✅ added hash
+      })),
+      { ignoreDuplicates: true }       // ✅ prevent inserting duplicates
     );
   } else {
     return db.OrderImage.bulkCreate(
       imageUrls.map((url) => ({
         image_url: url.large_url,
-        order_id: productId,
-        public_id: url.public_id
-      }))
+        order_id: productId,            // ✅ keep your original condition
+        public_id: url.public_id,
+        file_hash: url.file_hash        // ✅ added hash
+      })),
+      { ignoreDuplicates: true }       // ✅ prevent inserting duplicates
     );
   }
 };
 
-// ------------------------
-// Save logo to database
-// ------------------------
-const saveLogoToDatabase = async (imageUrls, id, email, mobile, address, gstin, company) => {
-  try {
-    const existingSetting = await db.Setting.findOne({ where: { id: id } });
-
-    if (existingSetting) {
-      await existingSetting.update({
-        company,
-        address,
-        gstin,
-        email,
-        logo: imageUrls[0].url,
-        public_id: imageUrls[0].key,
-        mobile
-      });
-      return existingSetting;
-    }
-
-    const setting = imageUrls.map((url) => ({
-      id,
-      company,
-      address,
-      gstin,
-      email,
-      logo: url.url,
-      public_id: url.key,
-    }));
-
-    await db.Setting.bulkCreate(setting);
-    return setting;
-  } catch (error) {
-    console.error('Error saving logo to database:', error);
-    throw new Error('Failed to save logo to database');
+const saveImagesToDatabase = async (images, productId, productPage) => {	
+  if (productPage === 'productPage') {
+    return db.ProductImage.bulkCreate(
+      images?.map((img) => ({
+        product_id: productId,
+        image_id: img?.id
+      })),
+      { ignoreDuplicates: true }
+    );
+  } else {
+    return db.OrderImage.bulkCreate(
+      images.map((img) => ({
+        order_id: productId,
+        image_id: img?.id,
+      })),
+      { ignoreDuplicates: true }
+    );
   }
 };
+
 
 // ------------------------
 // Delete images from Cloudinary
 // ------------------------
 const deleteImagesFromCloudinary = async (imageIds) => {
-  try {
-    const deletePromises = imageIds.map((imageId) =>
-      cloudinary.uploader.destroy(imageId)
-    );
-    const results = await Promise.all(deletePromises);
-
-    results.forEach((result, index) => {
-      if (result.result === 'ok') {
-        console.log(`Image ${imageIds[index]} deleted successfully`);
-      } else {
-        console.error(`Failed to delete image ${imageIds[index]}`);
-      }
-    });
-
-    return results;
-  } catch (error) {
-    console.error('Error deleting images from Cloudinary:', error);
-    throw error;
-  }
+  return Promise.all(
+    imageIds.map((id) => cloudinary.uploader.destroy(id))
+  );
 };
 
 // ------------------------
 // Delete images in DB
 // ------------------------
-const deleteImagesToDatabase = async (productId, imageId, publicId, page) => {
-  await deleteImagesFromCloudinary([publicId]);
-  if (page === 'productPage') {
-    await db.ProductImage.destroy({ where: { product_id: productId, id: imageId } });
-  } else {
-    await db.OrderImage.destroy({ where: { order_id: productId, id: imageId } });
-  }
-};
+const deleteImagesToDatabase = async (pImageId, productId, imageId, publicId, page) => {
+  //await deleteImagesFromCloudinary([publicId]);
 
-const deleteLogoToDatabase = async (publicId) => {
-  await deleteImagesFromCloudinary([publicId]);
+  //if (page === 'productPage') {
+    await ProductImage.destroy({ where: { id: pImageId, product_id: productId, image_id: imageId } });
+  //} else {
+    //await OrderImage.destroy({ where: { order_id: productId, id: imageId } });
+  //}
 };
 
 // ------------------------
-// Export all handlers
+// Export handlers
 // ------------------------
 module.exports = {
-  upload,                // Image upload middleware
-  uploadPDF,             // PDF upload middleware
+  upload,
+  uploadPDF,
   uploadImagesToCloudinary,
   saveImagesToDatabase,
-  deleteImagesToDatabase,
-  saveLogoToDatabase,
-  deleteLogoToDatabase
+  deleteImagesToDatabase
 };

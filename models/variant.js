@@ -57,6 +57,16 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         unique: true,
       },
+	  size: { 
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true,
+      },
+	  title: { 
+        type: DataTypes.TEXT('long'),
+        allowNull: false,
+        unique: true,
+      },
     },
     {
       tableName: "product_variants",

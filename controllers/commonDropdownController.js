@@ -136,7 +136,6 @@ const checkLastUpdated = async (model) => {
     attributes: [[fn("MAX", col("updatedAt")), "lastUpdated"]],
     raw: true
   });
-console.log(result?.lastUpdated, 'model')
   return result?.lastUpdated || null;
 }
 
