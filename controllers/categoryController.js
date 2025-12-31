@@ -86,6 +86,7 @@ const getCategoriesAndSubcategories = async (req, res) => {
       return {
         id: category.id,
         name: category.name,
+        icon: category.icon,
         subcategories,
       };
     }));
@@ -138,6 +139,7 @@ const createCategoryWithSubcategories = async (req, res) => {
               {
                 name: subcategoryData.name,
                 category_id: category.id,
+                icon: subcategoryData.icon,
                 parent_id: parentId
               },
               { transaction }
