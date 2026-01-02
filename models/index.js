@@ -174,39 +174,13 @@ db.OrderImage.belongsTo(db.Image, {
   foreignKey: 'image_id',
 });
 
+// Variant model
+db.Variant.belongsTo(db.Product, { as: 'productfilter', foreignKey: 'product_id' });
+db.Variant.hasMany(db.ProductImage, { foreignKey: 'product_id', as: 'productImages' });
 
+// ProductImage model
+db.ProductImage.belongsTo(db.Variant, { foreignKey: 'product_id' }); // ProductImage belongs to Variant
+db.ProductImage.belongsTo(db.Image, { foreignKey: 'image_id' }); // ProductImage belongs to Image
 
-
-// Add this to your Subcategory model (if not already defined)
-// In your Subcategory model:
-// db.Subcategory.hasMany(db.Subcategory, {
-//   foreignKey: "parent_id",  // The foreign key referring to the parent subcategory
-//   as: "subcategories",      // Alias for nested subcategories
-// });
-
-// db.Subcategory.belongsTo(db.Subcategory, {
-//   foreignKey: "parent_id",  // The foreign key pointing to the parent subcategory
-//   as: "parent",             // Alias for the parent subcategory
-// });
-
-
-// fs.readdirSync(__dirname)
-//   .filter((file) => file.indexOf('.') !== 0 && file !== basename && file.slice(-3) === '.js')
-//   .forEach((file) => {
-//     console.log(`Loading model from file: ${file}`);
-//     const modelFile = require(path.join(__dirname, file));
-//     console.log(`Loaded module for ${file}:`, modelFile);
-//     const model = modelFile(sequelize, Sequelize.DataTypes); // This line may fail
-//     db[model.name] = model;
-//   });
-
-
-
-// // Set up model associations
-// Object.keys(db).forEach((modelName) => {
-//   if (db[modelName].associate) {
-//     db[modelName].associate(db);
-//   }
-// });
 
 module.exports = db;

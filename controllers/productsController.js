@@ -1,7 +1,7 @@
 // controllers/productsController.js
 const db = require("../models");
 const { Product, Dealer, Category, Color, Weight, Variant } = require("../models");
-const { Op, where } = require('sequelize');
+const { Op, where, Sequelize } = require('sequelize');
 const subcategory = require("../models/subcategory");
 
 const createProducts = async (req, res) => {
@@ -53,7 +53,7 @@ const createProducts = async (req, res) => {
     // 3. Process variants
     if (productId &&variants || variants.length > 0) {
       const variantPromises = variants.map(async (variant) => {
-        const { price, sale_price, stock, deleted, materials, colour, dimensions, sku, color_id, company_id, size, title } = variant;
+        const { price, sale_price, stock, deleted, materials, colour, dimensions, sku, color_id, company_id, size, title, displayTitle } = variant;
         // Create product variant
         return db.Variant.create({
           product_id: productId,
@@ -68,7 +68,8 @@ const createProducts = async (req, res) => {
           color_id,
           company_id,
 		  size,
-		  title
+		  title,
+      displayTitle
         });              
       });
   
@@ -103,7 +104,7 @@ const fetchAfterUpdate = async (productId) => {
           model: db.Variant,
           as: "variants",
           required: false,
-          attributes: ["id", "colour", "dimensions", "materials", "sale_price", "color_id","stock","company_id","sku", "size", "title"]
+          attributes: ["id", "colour", "dimensions", "materials", "sale_price", "color_id","stock","company_id","sku", "size", "title", "displayTitle"]
         },
       ],
     });
@@ -215,7 +216,7 @@ const updateProducts = async (req, res) => {
     // 2. Update Variants
     if (variants && variants.length > 0) {
       for (const variant of variants) {
-        const { variant_id, price, sale_price, stock, deleted, materials, dimensions, colour, color_id, company_id, sku, size, title } = variant;
+        const { variant_id, price, sale_price, stock, deleted, materials, dimensions, colour, color_id, company_id, sku, size, title, displayTitle } = variant;
 
         // Check if the variant exists
         if (variant_id) {
@@ -228,7 +229,7 @@ const updateProducts = async (req, res) => {
               // Update the existing variant
               //console.log(`Updating variant with ID: ${variant_id}`);
               await db.Variant.update(
-                { colour, price, sale_price, stock, dimensions, materials, color_id, company_id, sku, size, title },
+                { colour, price, sale_price, stock, dimensions, materials, color_id, company_id, sku, size, title, displayTitle },
                 { where: { id: variant_id } }
               );
             } else {
@@ -251,7 +252,8 @@ const updateProducts = async (req, res) => {
             company_id,
             sku,
 			size,
-			title
+			title,
+      displayTitle
           });
         }
       }
@@ -321,7 +323,7 @@ const filterProducts = async (req, res) => {
           as: "variants",
           required: false,
           where: { deleted: 0 },
-          attributes: ["id", "colour", "dimensions", "materials", "price", "sale_price", "colour","stock","color_id","company_id","sku","size","title"],
+          attributes: ["id", "colour", "dimensions", "materials", "price", "sale_price", "colour","stock","color_id","company_id","sku","size","title","displayTitle"],
           include: [
             {
               model: db.materialsList,
@@ -405,7 +407,7 @@ const filterProducts = async (req, res) => {
   }
 };
 
-const filterProductsNew = async (req, res) => {
+const filterProductsNew2026 = async (req, res) => {
   try {
     const { limit = 100, offset = 0, orderBy, filters } = req.body;
 
@@ -421,14 +423,15 @@ const filterProductsNew = async (req, res) => {
 
     if (filters) {
       if (filters.parent_id === null) {
-        whereCondition.subcategory_id = filters.id || filters.category_id;
+        whereCondition.subcategory_id = filters.id || filters.category_id || filters.subcategory_id;
       } else if (filters.parent_id !== undefined) {
         whereCondition.subcategory_id = filters.parent_id;
       } else {
         whereCondition = { ...filters };
       }
     }
-
+    console.log(whereCondition);
+    
     // Fetch variants (added product_id)
     const variants = await db.Variant.findAndCountAll({
       attributes: [
@@ -440,10 +443,11 @@ const filterProductsNew = async (req, res) => {
         "sku",
         "size",
         "title",
+        "displayTitle"
       ],
       limit: parsedLimit,
       offset: parsedOffset,
-      col: "id",
+      col: "id",      
     });
 
     // Get variant IDs
@@ -534,6 +538,220 @@ const filterProductsNew = async (req, res) => {
     console.error("Error fetching variants:", error);
     res.status(500).json({
       error: "Failed to fetch variants",
+      message: error.message,
+    });
+  }
+};
+
+const filterProductsNew = async (req, res) => {
+  try {
+    const { limit = 100, offset = 0, orderBy, filters } = req.body;
+
+    const parsedLimit = parseInt(limit, 10);
+    const parsedOffset = parseInt(offset, 10);
+
+    // Default ordering logic with fallback to Product's createdAt
+    const orderByCondition = orderBy?.length
+      ? [
+          [
+            orderBy[0]?.colId === 'price' ? 'price' : orderBy[0]?.colId,
+            orderBy[0]?.sort || 'ASC',
+          ],
+        ]
+      : [['price', 'ASC']]; // Default sorting by Product's createdAt
+
+    // Construct dynamic filters for the product table
+    let whereCondition = {};
+
+    if (filters) {
+      if (filters.parent_id === null) {
+        whereCondition.subcategory_id = filters.id || filters.category_id || filters.subcategory_id;
+      } else if (filters.parent_id !== undefined) {
+        whereCondition.subcategory_id = filters.parent_id;
+      } else {
+        whereCondition = { ...filters };
+      }
+    }
+
+    console.log(orderByCondition); // Debugging filters
+
+    // Fetch variants with product details and images in a single query
+    const variants = await db.Variant.findAndCountAll({
+      attributes: ['id', 'product_id', 'price', 'sale_price', 'stock', 'sku', 'size', 'title', 'displayTitle'],
+      limit: parsedLimit,
+      offset: parsedOffset,
+      include: [
+        {
+          model: db.Product,
+          as: 'product', // Alias for Product association
+          attributes: ['id', 'name', 'category_id', 'subcategory_id', 'createdAt'], // Include only necessary fields
+          where: whereCondition, // Apply the filters
+        },
+        {
+          model: db.ProductImage,
+          as: 'productImages', // Alias for ProductImage association
+          attributes: ['id', 'image_id'],
+          include: {
+            model: db.Image,
+            attributes: ['id', 'image_url', 'public_id'], // Only include necessary image fields
+          },
+        },
+      ],
+      order: orderByCondition, // Apply the dynamic ordering
+    });
+
+    // Process variants and format data efficiently
+    const processedVariants = variants.rows.map(variant => {
+      const variantData = variant.toJSON();
+      const product = variantData.product || {};
+      const images = variantData.productImages || [];
+      const productImages = images.map(image => image.Image).filter(Boolean); // Extract image data
+
+      return {
+        ...variantData,
+        title: JSON.parse(variantData.title), // Assuming `title` is a JSON object
+        product_name: product.name || null,
+        images: productImages, // Return images for the variant
+        primary_image: productImages.length > 0 ? productImages[0] : null, // First image as primary
+      };
+    });
+
+    res.json({
+      variants: {
+        count: variants.count,
+        rows: processedVariants,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching variants:", error);
+    res.status(500).json({
+      error: 'Failed to fetch variants',
+      message: error.message,
+    });
+  }
+};
+
+const searchProducts = async (req, res) => {
+  try {
+    const {
+      limit = 100,
+      offset = 0,
+      orderBy,
+      filters = {},
+    } = req.body;
+
+    const searchTerm = filters.searchTerm?.trim();
+    const selectedBrand = filters.searchBrandTerm; // company_id
+
+    const parsedLimit = Number(limit);
+    const parsedOffset = Number(offset);
+
+    const orderByCondition = orderBy?.length
+      ? [[orderBy[0].colId === 'price' ? 'price' : orderBy[0].colId, orderBy[0].sort || 'ASC']]
+      : [['price', 'ASC']];
+
+    /** -----------------------------
+     * Variant WHERE conditions
+     ------------------------------*/
+    const variantWhere = {};
+
+    // ✅ Brand filter on Variant
+    if (selectedBrand) {
+      variantWhere.company_id = selectedBrand;
+    }
+
+    // ✅ Search conditions
+    if (searchTerm) {
+      variantWhere[Op.and] = [{
+        [Op.or]: [
+          { displayTitle: { [Op.like]: `%${searchTerm}%` } },
+          { sku: { [Op.like]: `%${searchTerm}%` } },
+          { size: { [Op.like]: `%${searchTerm}%` } },
+          Sequelize.where(
+            Sequelize.fn('JSON_SEARCH', Sequelize.col('Variant.title'), 'one', searchTerm),
+            { [Op.ne]: null }
+          ),
+          // search in product name
+          Sequelize.where(
+            Sequelize.col('product.name'),
+            { [Op.like]: `%${searchTerm}%` }
+          ),
+        ],
+      }];
+    }
+
+    const variants = await db.Variant.findAndCountAll({
+      attributes: [
+        'id',
+        'product_id',
+        'company_id',
+        'price',
+        'sale_price',
+        'stock',
+        'sku',
+        'size',
+        'title',
+        'displayTitle',
+      ],
+      where: variantWhere,
+      limit: parsedLimit,
+      offset: parsedOffset,
+      order: orderByCondition,
+      distinct: true,
+      include: [
+        {
+          model: db.Product,
+          as: 'product',
+          attributes: ['id', 'name', 'category_id', 'subcategory_id', 'createdAt'],
+          required: true, // safe even without search
+        },
+        {
+          model: db.ProductImage,
+          as: 'productImages',
+          attributes: ['id', 'image_id'],
+          include: {
+            model: db.Image,
+            attributes: ['id', 'image_url', 'public_id'],
+          },
+        },
+      ],
+    });
+
+    const processedVariants = variants.rows.map(v => {
+      const data = v.toJSON();
+      let parsedTitle = {};
+
+      try {
+        parsedTitle = typeof data.title === 'string'
+          ? JSON.parse(data.title)
+          : data.title;
+      } catch {
+        parsedTitle = {};
+      }
+
+      const images = data.productImages || [];
+      const productImages = images.map(i => i.Image).filter(Boolean);
+
+      return {
+        ...data,
+        title: parsedTitle,
+        product_name: data.product?.name || null,
+        images: productImages,
+        primary_image: productImages[0] || null,
+        product: data.product, // 👈 full product object
+      };
+    });
+
+    res.json({
+      variants: {
+        count: variants.count,
+        rows: processedVariants,
+      },
+    });
+  } catch (error) {
+    console.error('Search error:', error);
+    res.status(500).json({
+      error: 'Failed to search variants',
       message: error.message,
     });
   }
@@ -641,5 +859,6 @@ module.exports = {
   filterProducts,
   filterUserProducts,
   fetchSingleProduct,
-  filterProductsNew
+  filterProductsNew,
+  searchProducts
 };
