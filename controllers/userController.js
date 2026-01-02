@@ -4,32 +4,79 @@ const { User } = db;
 const { generateToken } = require('../utiles/auth');
 
 // Create User
+// const createUser = async (req, res) => {
+//   try {
+//     const { name, email, mobile_number, address = 'not set', client_status = 'royal', company = 'not set', gstin = 'not set', password, role = 'user' } = req.body;
+
+//     if (!name || !email || !mobile_number || !password) {
+//       return res.status(400).json({ error: 'All fields are required' });
+//     }
+
+//     // Check if email already exists
+//     if (await User.findOne({ where: { email } })) {
+//       return res.status(409).json({ error: 'Email is already registered. Try a different email.' });
+//     }
+
+//     // Check if mobile number already exists
+//     if (await User.findOne({ where: { mobile_number } })) {
+//       return res.status(409).json({ error: 'Mobile number is already registered. Try a different number.' });
+//     }
+
+//     const hashedPassword = await bcrypt.hash(password, 10);
+//     const user = await User.create({ name, email, mobile_number, address, client_status, company, gstin, password: hashedPassword, role });
+
+//     res.status(201).json({ message: 'User created successfully', user });
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
 const createUser = async (req, res) => {
   try {
-    const { name, email, mobile_number, address = 'not set', client_status = 'royal', company = 'not set', gstin = 'not set', password, role = 'user' } = req.body;
+    const {
+      name,
+      email,
+      mobile_number,
+      address = 'not set',
+      client_status = 'royal',
+      company = 'not set',
+      gstin = 'not set',
+      password,
+      role = 'user',
+    } = req.body?.form;
 
     if (!name || !email || !mobile_number || !password) {
       return res.status(400).json({ error: 'All fields are required' });
     }
 
-    // Check if email already exists
     if (await User.findOne({ where: { email } })) {
-      return res.status(409).json({ error: 'Email is already registered. Try a different email.' });
+      return res.status(409).json({ error: 'Email is already registered' });
     }
 
-    // Check if mobile number already exists
     if (await User.findOne({ where: { mobile_number } })) {
-      return res.status(409).json({ error: 'Mobile number is already registered. Try a different number.' });
+      return res.status(409).json({ error: 'Mobile number already registered' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await User.create({ name, email, mobile_number, address, client_status, company, gstin, password: hashedPassword, role });
 
-    res.status(201).json({ message: 'User created successfully', user });
+    await User.create({
+      name,
+      email,
+      mobile_number,
+      address,
+      client_status,
+      company,
+      gstin,
+      password: hashedPassword,
+      role,
+    });
+
+    res.status(201).json({ message: 'User created successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 // Fetch All Users
 const getUsers = async (req, res) => {
@@ -92,7 +139,7 @@ const deleteUser = async (req, res) => {
 // User Login
 const loginUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body?.form;
     
     const user = await User.findOne({ where: { email } });
     if (!user || !(await bcrypt.compare(password, user.password))) {
