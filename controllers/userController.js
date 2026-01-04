@@ -43,9 +43,10 @@ const createUser = async (req, res) => {
       gstin = 'not set',
       password,
       role = 'user',
+      pincode
     } = req.body?.form;
 
-    if (!name || !email || !mobile_number || !password) {
+    if (!name || !email || !mobile_number || !password || !pincode) {
       return res.status(400).json({ error: 'All fields are required' });
     }
 
@@ -69,6 +70,7 @@ const createUser = async (req, res) => {
       gstin,
       password: hashedPassword,
       role,
+      pincode
     });
 
     res.status(201).json({ message: 'User created successfully' });

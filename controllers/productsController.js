@@ -130,17 +130,90 @@ const fetchAfterUpdate = async (productId) => {
   }
 };
 
+// const getAllProducts = async (req, res) => {
+//   const { limit, offset, orderBy, filters } = req.body;
+//   const parsedLimit = limit ? parseInt(limit, 10) : 10;
+//     const parsedOffset = offset ? parseInt(offset, 10) : 0;
+//     // const orderByCondition = [['createdAt', 'DESC']];
+//     const orderByCondition = [[orderBy[0].colId, orderBy[0].sort]];
+//     const whereCondition = filters || {}; 
+//   try {
+//     // Step 1: Fetch all products with associations
+//     const products = await db.Product.findAndCountAll({
+//       distinct: true,  // Ensure distinct count of products
+//       include: [
+//         {
+//           model: db.ProductImage,
+//           as: 'imagesT',
+//           attributes: ['id', 'image_url', 'public_id', 'product_id'],
+//         },
+//         {
+//           model: db.Category,
+//           as: 'category',
+//           attributes: ['id', 'name'],
+//           include: [
+//             {
+//               model: db.Subcategory,
+//               as: 'subcategories',
+//               attributes: ['id', 'name','parent_id'],
+//             },
+//           ]
+//         },
+        
+//       ],
+//       order: orderByCondition, // Apply the ordering condition
+//       where: whereCondition, // Apply the filters (or no filter if filters is null)
+//       limit: parsedLimit, // Apply pagination limit
+//       offset: parsedOffset, // Apply pagination offset
+//       distinct: true,  // Add this to fix duplicate count issue
+//       col: 'id' // Ensures distinct is applied correctly on primary key
+//     });
+    
+//     // Post-process each product to fetch dealers based on dealer_id string
+//     const productWithDealers = await Promise.all(
+//       products.rows.map(async (product) => {
+//         const dealerIds = product.dealer_id.split(',').map((id) => parseInt(id.trim())).filter((id) => !isNaN(id)); // Parse dealer_id string
+//         const dealers = await db.Dealer.findAll({
+//           where: {
+//             id: {
+//               [Op.in]: dealerIds, // Fetch all dealers with parsed IDs
+//             },
+//           },
+//           attributes: ['id', 'name', 'company', 'email', 'mobile_number', 'dealer_status'],
+//         });
+//         return { ...product.toJSON(), dealers }; // Add dealers to product
+//       })
+//     );
+// console.log(productWithDealers, 'hiiii')
+//     res.json({ products: {
+//         count: products.count,
+//         rows: productWithDealers
+//       }
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ error: 'Failed to fetch products' });
+//   }
+// };
+
 const getAllProducts = async (req, res) => {
   const { limit, offset, orderBy, filters } = req.body;
+
   const parsedLimit = limit ? parseInt(limit, 10) : 10;
-    const parsedOffset = offset ? parseInt(offset, 10) : 0;
-    // const orderByCondition = [['createdAt', 'DESC']];
-    const orderByCondition = [[orderBy[0].colId, orderBy[0].sort]];
-    const whereCondition = filters || {}; 
+  const parsedOffset = offset ? parseInt(offset, 10) : 0;
+
+  const orderByCondition = orderBy?.length
+    ? [[orderBy[0].colId, orderBy[0].sort]]
+    : [['id', 'DESC']];
+
   try {
-    // Step 1: Fetch all products with associations
     const products = await db.Product.findAndCountAll({
-      distinct: true,  // Ensure distinct count of products
+      distinct: true,
+      where: filters || {},
+      limit: parsedLimit,
+      offset: parsedOffset,
+      order: orderByCondition,
+
       include: [
         {
           model: db.ProductImage,
@@ -155,46 +228,27 @@ const getAllProducts = async (req, res) => {
             {
               model: db.Subcategory,
               as: 'subcategories',
-              attributes: ['id', 'name'],
-            },
+              attributes: ['id', 'name', 'parent_id'],
+            }
           ]
-        },
-        
-      ],
-      order: orderByCondition, // Apply the ordering condition
-      where: whereCondition, // Apply the filters (or no filter if filters is null)
-      limit: parsedLimit, // Apply pagination limit
-      offset: parsedOffset, // Apply pagination offset
-      distinct: true,  // Add this to fix duplicate count issue
-      col: 'id' // Ensures distinct is applied correctly on primary key
+        }
+      ]
     });
-    
-    // Post-process each product to fetch dealers based on dealer_id string
-    const productWithDealers = await Promise.all(
-      products.rows.map(async (product) => {
-        const dealerIds = product.dealer_id.split(',').map((id) => parseInt(id.trim())).filter((id) => !isNaN(id)); // Parse dealer_id string
-        const dealers = await db.Dealer.findAll({
-          where: {
-            id: {
-              [Op.in]: dealerIds, // Fetch all dealers with parsed IDs
-            },
-          },
-          attributes: ['id', 'name', 'company', 'email', 'mobile_number', 'dealer_status'],
-        });
-        return { ...product.toJSON(), dealers }; // Add dealers to product
-      })
-    );
 
-    res.json({ products: {
+    res.json({
+      products: {
         count: products.count,
-        rows: productWithDealers
+        rows: products.rows
       }
     });
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to fetch products' });
   }
 };
+
+
 
 const updateProducts = async (req, res) => {
   try {
