@@ -689,7 +689,7 @@ const filterProductsNew = async (req, res) => {
 const searchProducts = async (req, res) => {
   try {
     const {
-      limit = 100,
+      limit = 20,
       offset = 0,
       orderBy,
       filters = {},
@@ -717,23 +717,38 @@ const searchProducts = async (req, res) => {
 
     // ✅ Search conditions
     if (searchTerm) {
-      variantWhere[Op.and] = [{
-        [Op.or]: [
-          { displayTitle: { [Op.like]: `%${searchTerm}%` } },
-          { sku: { [Op.like]: `%${searchTerm}%` } },
-          { size: { [Op.like]: `%${searchTerm}%` } },
-          Sequelize.where(
-            Sequelize.fn('JSON_SEARCH', Sequelize.col('Variant.title'), 'one', searchTerm),
-            { [Op.ne]: null }
+  variantWhere[Op.and] = [{
+    [Op.or]: [
+      { displayTitle: { [Op.like]: `%${searchTerm}%` } },
+      { sku: { [Op.like]: `%${searchTerm}%` } },
+      { size: { [Op.like]: `%${searchTerm}%` } },
+
+      // ✅ SAFE JSON search
+      Sequelize.and(
+        Sequelize.where(
+          Sequelize.fn('JSON_VALID', Sequelize.col('Variant.title')),
+          1
+        ),
+        Sequelize.where(
+          Sequelize.fn(
+            'JSON_SEARCH',
+            Sequelize.col('Variant.title'),
+            'one',
+            searchTerm
           ),
-          // search in product name
-          Sequelize.where(
-            Sequelize.col('product.name'),
-            { [Op.like]: `%${searchTerm}%` }
-          ),
-        ],
-      }];
-    }
+          { [Op.ne]: null }
+        )
+      ),
+
+      // product name search
+      Sequelize.where(
+        Sequelize.col('product.name'),
+        { [Op.like]: `%${searchTerm}%` }
+      ),
+    ],
+  }];
+}
+
 
     const variants = await db.Variant.findAndCountAll({
       attributes: [
