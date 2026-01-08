@@ -627,7 +627,7 @@ const filterProductsNew = async (req, res) => {
       }
     }
 
-    console.log(orderByCondition); // Debugging filters
+    //console.log(orderByCondition); // Debugging filters
 
     // Fetch variants with product details and images in a single query
     const variants = await db.Variant.findAndCountAll({
@@ -663,7 +663,8 @@ const filterProductsNew = async (req, res) => {
 
       return {
         ...variantData,
-        title: JSON.parse(variantData.title), // Assuming `title` is a JSON object
+        // title: JSON.parse(variantData.title), // Assuming `title` is a JSON object
+        title: variantData.title,
         product_name: product.name || null,
         images: productImages, // Return images for the variant
         primary_image: productImages.length > 0 ? productImages[0] : null, // First image as primary
