@@ -265,4 +265,14 @@ const searchUserProduct = async (req, res) => {
   }
 };
 
-module.exports = { searchUsers, searchProduct, searchDealers, searchOrder, searchUserProduct };
+const brandlist = async (req, res) => {
+	
+  try {
+    const brand = await db.companyNew.findAll();	  
+    res.status(200).json({ brand });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+module.exports = { searchUsers, searchProduct, searchDealers, searchOrder, searchUserProduct, brandlist };
