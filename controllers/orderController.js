@@ -697,10 +697,11 @@ const getAllOrdersAdmin = async (req, res) => {
     const whereCondition = filters || {}; 
 
     // Fetch orders with pagination, ordering, and optional filtering
-    const orders = await db.Order.findAndCountAll({
+    const orders = await db.Orderwebsite.findAndCountAll({
       include: [
         {
           model: db.User,
+          as: 'user',
           attributes: ['id', 'name', 'email', 'company', 'mobile_number'],
         },
       ],
@@ -721,7 +722,7 @@ const getAllOrdersAdmin = async (req, res) => {
         count: orders.count, // Total number of orders
         rows: orders.rows.map((order) => ({
           id: order.id,
-          user: order.User,
+          user: order.user, // ✅ lowercase alias
           totalAmount: parseInt(order.total_amount),
           gstAmount: parseInt(order.gst_amount),
           order_status: order.status,

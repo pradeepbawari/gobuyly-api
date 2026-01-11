@@ -69,7 +69,51 @@ db.materialsList = require('./materials_list')(sequelize, DataTypes);
 db.dimensionType = require('./dimension_type')(sequelize, DataTypes);
 db.dimensionUnit = require('./dimension_unit')(sequelize, DataTypes);
 db.Image = require('./image')(sequelize, DataTypes);
+db.Orderwebsite = require('./Order_website')(sequelize, DataTypes);
+db.OrderWebsiteItems = require('./order_websiteitems')(sequelize, DataTypes);
 // Define relationships
+
+// -----------------------------------------
+
+// OrderWebsiteItems belongs to Variant
+db.OrderWebsiteItems.belongsTo(db.Variant, {
+  foreignKey: 'variant_id', // This is the column in OrderWebsiteItems
+  as: 'variantOrder'
+});
+
+// OrderWebsite has many OrderWebsiteItems
+db.Orderwebsite.hasMany(db.OrderWebsiteItems, {
+  foreignKey: 'order_id', // This is the column in OrderWebsiteItems
+  as: 'orderItemsReferral'
+});
+
+db.Orderwebsite.hasMany(db.OrderWebsiteItems, {
+  foreignKey: 'order_id',
+  as: 'orderList', // THIS MUST MATCH
+});
+db.OrderWebsiteItems.belongsTo(db.Orderwebsite, {
+  foreignKey: 'order_id',
+});
+
+db.Orderwebsite.hasMany(db.OrderWebsiteItems, {
+  foreignKey: 'order_id',  // OrderWebsiteItems.order_id -> Orderwebsite.id
+  as: 'orderItems',
+});
+
+db.OrderWebsiteItems.belongsTo(db.Orderwebsite, {
+  foreignKey: 'order_id',
+});
+
+db.Orderwebsite.belongsTo(db.User, {
+  foreignKey: 'user_id',
+  as: 'user',
+});
+db.User.hasMany(db.Orderwebsite, {
+  foreignKey: 'user_id',
+  as: 'orderwebsite',
+});
+
+// ---------------------------------------
 
 db.Product.belongsTo(db.Category, { foreignKey: 'category_id', as: 'category' });
 db.Category.hasMany(db.Product, { foreignKey: 'category_id', as: 'products' });
