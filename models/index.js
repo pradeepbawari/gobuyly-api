@@ -73,7 +73,160 @@ db.Orderwebsite = require('./Order_website')(sequelize, DataTypes);
 db.OrderWebsiteItems = require('./order_websiteitems')(sequelize, DataTypes);
 // Define relationships
 
-// -----------------------------------------
+
+// /* =========================
+//    USER ↔ ORDER (Website)
+// ========================= */
+
+// db.Orderwebsite.belongsTo(db.User, {
+//   foreignKey: 'user_id',
+//   as: 'user',
+// });
+
+// db.User.hasMany(db.Orderwebsite, {
+//   foreignKey: 'user_id',
+//   as: 'orders',
+// });
+
+
+// /* =========================
+//    ORDER ↔ ORDER ITEMS
+// ========================= */
+
+// db.Orderwebsite.hasMany(db.OrderWebsiteItems, {
+//   foreignKey: 'order_id',
+//   as: 'orderItems',
+// });
+
+// db.OrderWebsiteItems.belongsTo(db.Orderwebsite, {
+//   foreignKey: 'order_id',
+// });
+
+
+// /* =========================
+//    ORDER ITEM ↔ VARIANT
+// ========================= */
+
+// db.OrderWebsiteItems.belongsTo(db.Variant, {
+//   foreignKey: 'variant_id',
+//   as: 'variant',
+// });
+
+// db.Variant.hasMany(db.OrderWebsiteItems, {
+//   foreignKey: 'variant_id',
+//   as: 'orderItems',
+// });
+
+
+// /* =========================
+//    VARIANT ↔ PRODUCT
+// ========================= */
+
+// db.Variant.belongsTo(db.Product, {
+//   foreignKey: 'product_id',
+//   as: 'product',
+// });
+
+// db.Product.hasMany(db.Variant, {
+//   foreignKey: 'product_id',
+//   as: 'variants',
+// });
+
+
+// /* =========================
+//    PRODUCT ↔ PRODUCT IMAGE
+// ========================= */
+
+// db.Product.hasMany(db.ProductImage, {
+//   foreignKey: 'product_id',
+//   as: 'productImages',
+//   onDelete: 'CASCADE',
+// });
+
+// db.ProductImage.belongsTo(db.Product, {
+//   foreignKey: 'product_id',
+//   as: 'product',
+// });
+
+
+// /* =========================
+//    IMAGE ↔ PRODUCT IMAGE
+// ========================= */
+
+// db.Image.hasMany(db.ProductImage, {
+//   foreignKey: 'image_id',
+// });
+
+// db.ProductImage.belongsTo(db.Image, {
+//   foreignKey: 'image_id',
+// });
+
+
+// /* =========================
+//    CATEGORY ↔ SUBCATEGORY
+// ========================= */
+
+// db.Category.hasMany(db.Subcategory, {
+//   foreignKey: 'category_id',
+//   as: 'subcategories',
+// });
+
+// db.Subcategory.belongsTo(db.Category, {
+//   foreignKey: 'category_id',
+//   as: 'category',
+// });
+
+// // Self-referencing subcategory
+// db.Subcategory.hasMany(db.Subcategory, {
+//   foreignKey: 'parent_id',
+//   as: 'children',
+// });
+
+// db.Subcategory.belongsTo(db.Subcategory, {
+//   foreignKey: 'parent_id',
+//   as: 'parent',
+// });
+
+
+// /* =========================
+//    MATERIAL ↔ VARIANT
+// ========================= */
+
+// db.Variant.belongsTo(db.materialsList, {
+//   foreignKey: 'materials',
+//   targetKey: 'id',
+//   as: 'materialDetail',
+// });
+
+// db.materialsList.hasMany(db.Variant, {
+//   foreignKey: 'materials',
+//   sourceKey: 'id',
+//   as: 'variants',
+// });
+
+
+// /* =========================
+//    DEALER ↔ PRODUCT (M:N)
+// ========================= */
+
+// db.Product.belongsToMany(db.Dealer, {
+//   through: 'product_dealers',
+//   foreignKey: 'product_id',
+//   otherKey: 'dealer_id',
+//   as: 'dealers',
+// });
+
+// db.Dealer.belongsToMany(db.Product, {
+//   through: 'product_dealers',
+//   foreignKey: 'dealer_id',
+//   otherKey: 'product_id',
+//   as: 'products',
+// });
+
+
+
+
+// ------- old one 25-1-20206 ----------------------------------
 
 // OrderWebsiteItems belongs to Variant
 db.OrderWebsiteItems.belongsTo(db.Variant, {
@@ -121,12 +274,6 @@ db.Category.hasMany(db.Product, { foreignKey: 'category_id', as: 'products' });
 db.Product.hasMany(db.Variant, { foreignKey: 'product_id', as: 'variants' });
 db.Variant.belongsTo(db.Product, { foreignKey: 'product_id', as: 'product' });
 
-// db.Variant.belongsTo(db.Color, { foreignKey: 'color_id', as: 'color' });
-// db.Color.hasMany(db.Variant, { foreignKey: 'color_id', as: 'variants' });
-
-// db.Variant.belongsTo(db.Weight, { foreignKey: 'weight_id', as: 'weight' });
-// db.Weight.hasMany(db.Variant, { foreignKey: 'weight_id', as: 'variants' });
-
 
 // In the Product model:
 db.Product.belongsToMany(db.Dealer, {
@@ -154,9 +301,6 @@ db.Order.hasMany(db.OrderItem, { foreignKey: "order_id" });
 db.OrderItem.belongsTo(db.Order, { foreignKey: "order_id" });
 db.OrderItem.belongsTo(db.Product, { foreignKey: "product_id" });
 
-//db.ProductImage.belongsTo(db.Product, { foreignKey: 'productId', as: 'product'});
-//db.Product.hasMany(db.ProductImage, { foreignKey: 'productId',as: 'images', onDelete: 'CASCADE',});
-
 db.ProductImage.belongsTo(db.Product, { foreignKey: 'product_id', as: 'productT'});
 db.Product.hasMany(db.ProductImage, { foreignKey: 'product_id', as: 'imagesT', onDelete: 'CASCADE',});
 
@@ -174,15 +318,6 @@ db.productAttribute.belongsTo(db.companyNew, { foreignKey: "product_id" });
 
 db.productNew.hasMany(db.productAttribute, { foreignKey: "product_id" });
 db.productAttribute.belongsTo(db.productNew, { foreignKey: "product_id" });
-
-// db.Category.hasMany(db.Subcategory, { foreignKey: "category_id" });
-// db.Subcategory.belongsTo(db.Category, { foreignKey: 'category_id', as: 'Subcategories' });
-
-// db.Category.hasMany(db.Subcategory, { foreignKey: 'category_id', as: 'Subcategories' });
-// db.Subcategory.belongsTo(db.Category, { foreignKey: 'category_id', as: 'Subcategories' });
-
-// db.Category.hasMany(db.Subcategory, { foreignKey: "category_id", as: "subcategories" });
-// db.Subcategory.belongsTo(db.Category, { foreignKey: "category_id", as: "Category" });
 
 db.Category.hasMany(db.Subcategory, { foreignKey: "category_id", as: "subcategories" });
 db.Subcategory.belongsTo(db.Category, { foreignKey: "category_id", as: "Category" });
