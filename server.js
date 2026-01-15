@@ -21,6 +21,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const commentRoutes = require('./routes/commentRoutes');
 const commonRoutes = require('./routes/commonRoutes');
 const excelExportRoutes = require('./routes/excelExportRoutes');
+const orderPlaceRoutesUser = require('./routes/orderPlaceRoutesUser');
 //const webhookRoutes = require("./routes/webhooksRoutes");
 
 // Import the upload middleware
@@ -80,7 +81,8 @@ app.use('/api/comments', authenticate, commentRoutes);
 app.use('/api/front', commonRoutes);
 app.use('/api', authenticate, commonRoutes);
 app.use('/api/export', authenticate, excelExportRoutes);
- 
+app.use('/api/order_place', orderPlaceRoutesUser);
+
 // File upload route
 app.use('/api/upload', authenticate, createUpload, uploadRoutes);  // Apply upload middleware to the '/upload' route
 app.use('/api/invoice', authenticate, createUploadPDF, uploadPDFRoutes); 
