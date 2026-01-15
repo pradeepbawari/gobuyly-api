@@ -12,9 +12,10 @@ const createOrder = async (req, res) => {
       address,
       amount,
       cartItems,
-      paymentDetails,
+      paymentDetails='',
       status = 'PENDING',
-      referral,
+      referral='',
+      shipping,
       customerName,
       customerEmail,
       customerPhone,
@@ -22,7 +23,7 @@ const createOrder = async (req, res) => {
     } = req.body.orderDetails;
 
     // ✅ Validate required fields
-    if (!userId || !address || !amount || !cartItems || !paymentDetails) {
+    if (!userId || !address || !amount || !cartItems) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -38,7 +39,8 @@ const createOrder = async (req, res) => {
       paymentDetails,
       status,
       referral,
-      payment_status
+      payment_status,
+      shipping
     });
 
     // ✅ Insert order items
@@ -50,7 +52,8 @@ const createOrder = async (req, res) => {
           quantity: item.quantity,
           price: item?.price,
           status,
-          sku: item?.sku
+          sku: item?.sku,
+          gst: item?.gst
         }))
       );
     }
@@ -60,9 +63,9 @@ const createOrder = async (req, res) => {
 
     // ✅ Cashfree order create
     //const CF_BASE =
-  process.env.CASHFREE_ENV === "PROD"
-    ? "https://api.cashfree.com/pg/orders"
-    : "https://sandbox.cashfree.com/pg/orders";
+  // process.env.CASHFREE_ENV === "PROD"
+  //   ? "https://api.cashfree.com/pg/orders"
+  //   : "https://sandbox.cashfree.com/pg/orders";
 
 
     // const response = await fetch(CF_BASE, {
@@ -344,7 +347,7 @@ const getOrders = async (req, res) => {
         },
       ],
       attributes: [
-        "id", "user_id", "address", "amount", "paymentDetails", "status", "payment_status"
+        "id", "user_id", "address", "amount", "paymentDetails", "status", "payment_status", "shipping"
       ],
       order: [['id', 'DESC']], // Optional: sort latest first
     });

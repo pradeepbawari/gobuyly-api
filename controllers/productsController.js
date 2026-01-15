@@ -638,7 +638,7 @@ const filterProductsNew = async (req, res) => {
         {
           model: db.Product,
           as: 'product', // Alias for Product association
-          attributes: ['id', 'name', 'category_id', 'subcategory_id', 'createdAt'], // Include only necessary fields
+          attributes: ['id', 'name', 'category_id', 'gst_rate', 'subcategory_id', 'createdAt'], // Include only necessary fields
           where: whereCondition, // Apply the filters
         },
         {
@@ -772,7 +772,7 @@ const searchProducts = async (req, res) => {
         {
           model: db.Product,
           as: 'product',
-          attributes: ['id', 'name', 'category_id', 'subcategory_id', 'createdAt'],
+          attributes: ['id', 'name', 'gst_rate', 'category_id', 'subcategory_id', 'createdAt'],
           required: true, // safe even without search
         },
         {

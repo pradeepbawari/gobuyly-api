@@ -52,7 +52,11 @@ module.exports = (sequelize, DataTypes) => {
     updated_at: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW
-    }
+    },
+    shipping: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
   }, {
     tableName: 'order_website',
     timestamps: true,

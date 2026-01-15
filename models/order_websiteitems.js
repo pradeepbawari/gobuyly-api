@@ -31,11 +31,11 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
     },
 
-    // gst: {
-    //   type: DataTypes.DECIMAL(10, 2),
-    //   allowNull: false,
-    //   defaultValue: 0,
-    // },
+    gst: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      defaultValue: 0,
+    },
 
     // total: {
     //   type: DataTypes.DECIMAL(10, 2),
