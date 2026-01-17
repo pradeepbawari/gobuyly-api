@@ -597,94 +597,207 @@ const filterProductsNew2026 = async (req, res) => {
   }
 };
 
+// const filterProductsNew = async (req, res) => {
+//   try {
+//     const { limit = 100, offset = 0, orderBy, filters } = req.body;
+
+//     const parsedLimit = parseInt(limit, 10);
+//     const parsedOffset = parseInt(offset, 10);
+
+//     // Default ordering logic with fallback to Product's createdAt
+//     const orderByCondition = orderBy?.length
+//       ? [
+//           [
+//             orderBy[0]?.colId === 'price' ? 'price' : orderBy[0]?.colId,
+//             orderBy[0]?.sort || 'ASC',
+//           ],
+//         ]
+//       : [['price', 'ASC']]; // Default sorting by Product's createdAt
+
+//     // Construct dynamic filters for the product table
+//     let whereCondition = {};
+
+//     if (filters) {
+//       if (filters.parent_id === null) {
+//         whereCondition.subcategory_id = filters.id || filters.category_id || filters.subcategory_id;
+//       } else if (filters.parent_id !== undefined) {
+//         whereCondition.subcategory_id = filters.parent_id;
+//       } else {
+//         whereCondition = { ...filters };
+//       }
+//     }
+
+//     //console.log(orderByCondition); // Debugging filters
+
+//     // Fetch variants with product details and images in a single query
+//     const variants = await db.Variant.findAndCountAll({
+//       attributes: ['id', 'product_id', 'price', 'sale_price', 'stock', 'sku', 'size', 'title', 'displayTitle'],
+//       limit: parsedLimit,
+//       offset: parsedOffset,
+//       include: [
+//         {
+//           model: db.Product,
+//           as: 'product', // Alias for Product association
+//           attributes: ['id', 'name', 'category_id', 'gst_rate', 'subcategory_id', 'createdAt'], // Include only necessary fields
+//           where: whereCondition, // Apply the filters
+//         },
+//         {
+//           model: db.ProductImage,
+//           as: 'productImages', // Alias for ProductImage association
+//           attributes: ['id', 'image_id'],
+//           include: {
+//             model: db.Image,
+//             attributes: ['id', 'image_url', 'public_id'], // Only include necessary image fields
+//           },
+//         },
+//       ],
+//       order: orderByCondition, // Apply the dynamic ordering
+//     });
+
+//     // Process variants and format data efficiently
+//     const processedVariants = variants.rows.map(variant => {
+//       const variantData = variant.toJSON();
+//       const product = variantData.product || {};
+//       const images = variantData.productImages || [];
+//       const productImages = images.map(image => image.Image).filter(Boolean); // Extract image data
+
+//       return {
+//         ...variantData,
+//         // title: JSON.parse(variantData.title), // Assuming `title` is a JSON object
+//         title: variantData.title,
+//         product_name: product.name || null,
+//         images: productImages, // Return images for the variant
+//         primary_image: productImages.length > 0 ? productImages[0] : null, // First image as primary
+//       };
+//     });
+
+//     res.json({
+//       variants: {
+//         count: variants.count,
+//         rows: processedVariants,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error fetching variants:", error);
+//     res.status(500).json({
+//       error: 'Failed to fetch variants',
+//       message: error.message,
+//     });
+//   }
+// };
+
 const filterProductsNew = async (req, res) => {
   try {
-    const { limit = 100, offset = 0, orderBy, filters } = req.body;
+    const {
+      limit = 20,
+      offset = 0,
+      orderBy = [],
+      filters = {},
+    } = req.body
 
-    const parsedLimit = parseInt(limit, 10);
-    const parsedOffset = parseInt(offset, 10);
+    const parsedLimit = Math.max(parseInt(limit, 10), 1)
+    const parsedOffset = Math.max(parseInt(offset, 10), 0)
 
-    // Default ordering logic with fallback to Product's createdAt
-    const orderByCondition = orderBy?.length
-      ? [
-          [
-            orderBy[0]?.colId === 'price' ? 'price' : orderBy[0]?.colId,
-            orderBy[0]?.sort || 'ASC',
-          ],
-        ]
-      : [['price', 'ASC']]; // Default sorting by Product's createdAt
+    /* ================= SAFE SORTING ================= */
+    const ALLOWED_SORT_COLUMNS = ['price', 'createdAt', 'sale_price']
 
-    // Construct dynamic filters for the product table
-    let whereCondition = {};
+    const sortCol =
+      ALLOWED_SORT_COLUMNS.includes(orderBy?.[0]?.colId)
+        ? orderBy[0].colId
+        : 'price'
 
-    if (filters) {
-      if (filters.parent_id === null) {
-        whereCondition.subcategory_id = filters.id || filters.category_id || filters.subcategory_id;
-      } else if (filters.parent_id !== undefined) {
-        whereCondition.subcategory_id = filters.parent_id;
-      } else {
-        whereCondition = { ...filters };
-      }
+    const sortDir =
+      orderBy?.[0]?.sort === 'DESC' ? 'DESC' : 'ASC'
+
+    const orderByCondition = [[sortCol, sortDir]]
+
+    /* ================= FILTER BUILDING ================= */
+    const whereCondition = {}
+
+    if (filters.category_id) {
+      whereCondition.category_id = filters.category_id
     }
 
-    //console.log(orderByCondition); // Debugging filters
+    if (filters.subcategory_id) {
+      whereCondition.subcategory_id = filters.subcategory_id
+    }
 
-    // Fetch variants with product details and images in a single query
+    if (filters.parent_id !== undefined && filters.parent_id !== null) {
+      whereCondition.subcategory_id = filters.parent_id
+    }
+
+    /* ================= QUERY ================= */
     const variants = await db.Variant.findAndCountAll({
-      attributes: ['id', 'product_id', 'price', 'sale_price', 'stock', 'sku', 'size', 'title', 'displayTitle'],
+      distinct: true, // 🔥 REQUIRED for correct count
+      attributes: [
+        'id',
+        'product_id',
+        'price',
+        'sale_price',
+        'stock',
+        'sku',
+        'size',
+        'title',
+        'displayTitle',
+      ],
       limit: parsedLimit,
       offset: parsedOffset,
+      order: orderByCondition,
+
       include: [
         {
           model: db.Product,
-          as: 'product', // Alias for Product association
-          attributes: ['id', 'name', 'category_id', 'gst_rate', 'subcategory_id', 'createdAt'], // Include only necessary fields
-          where: whereCondition, // Apply the filters
+          as: 'product',
+          attributes: [
+            'id',
+            'name',
+            'category_id',
+            'subcategory_id',
+            'gst_rate',
+            'createdAt',
+          ],
+          where: whereCondition,
         },
         {
           model: db.ProductImage,
-          as: 'productImages', // Alias for ProductImage association
+          as: 'productImages',
           attributes: ['id', 'image_id'],
+          required: false,
           include: {
             model: db.Image,
-            attributes: ['id', 'image_url', 'public_id'], // Only include necessary image fields
+            attributes: ['id', 'image_url', 'public_id'],
           },
         },
       ],
-      order: orderByCondition, // Apply the dynamic ordering
-    });
+    })
 
-    // Process variants and format data efficiently
-    const processedVariants = variants.rows.map(variant => {
-      const variantData = variant.toJSON();
-      const product = variantData.product || {};
-      const images = variantData.productImages || [];
-      const productImages = images.map(image => image.Image).filter(Boolean); // Extract image data
+    /* ================= RESPONSE MAPPING ================= */
+    const processedVariants = variants.rows.map((variant) => {
+      const v = variant.toJSON()
+      const images = v.productImages?.map((i) => i.Image).filter(Boolean) || []
 
       return {
-        ...variantData,
-        // title: JSON.parse(variantData.title), // Assuming `title` is a JSON object
-        title: variantData.title,
-        product_name: product.name || null,
-        images: productImages, // Return images for the variant
-        primary_image: productImages.length > 0 ? productImages[0] : null, // First image as primary
-      };
-    });
+        ...v,
+        product_name: v.product?.name || null,
+        images,
+        primary_image: images[0] || null,
+      }
+    })
 
-    res.json({
+    return res.json({
       variants: {
         count: variants.count,
         rows: processedVariants,
       },
-    });
+    })
   } catch (error) {
-    console.error("Error fetching variants:", error);
-    res.status(500).json({
+    console.error('filterProductsNew error:', error)
+    return res.status(500).json({
       error: 'Failed to fetch variants',
-      message: error.message,
-    });
+    })
   }
-};
+}
+
 
 const searchProducts = async (req, res) => {
   try {
