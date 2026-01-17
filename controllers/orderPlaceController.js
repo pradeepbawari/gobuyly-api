@@ -329,35 +329,80 @@ const createOrderAfterCashfree = async (data) => {
 
 const getOrders = async (req, res) => {
   const { userid } = req.body;
+
   if (!userid) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
   try {
     const orders = await db.Orderwebsite.findAll({
-      where: { user_id: userid },
+  where: { user_id: userid },
+  include: [
+    {
+      model: db.OrderWebsiteItems,
+      as: 'orderItems', // ✅ must match
       include: [
         {
-          model: db.OrderWebsiteItems,
-          as: 'orderItems',
-          attributes: [
-            "id", "order_id", "variant_id",
-            "quantity", "price", "status", "sku"
+          model: db.Variant,
+          as: 'variantOrder', // ✅ must match
+          include: [
+            {
+              model: db.Product,
+              as: 'product',
+              attributes: ['id', 'name'],
+            },
+            {
+              model: db.ProductImage,
+              as: 'productImages',
+              include: {
+                model: db.Image,
+                attributes: ['image_url', 'public_id'],
+              },
+            },
           ],
         },
       ],
-      attributes: [
-        "id", "user_id", "address", "amount", "paymentDetails", "status", "payment_status", "shipping"
-      ],
-      order: [['id', 'DESC']], // Optional: sort latest first
+    },
+  ],
+});
+
+
+    // ---- Post-process response (same style as filterProductsNew) ----
+    const formattedOrders = orders.map(order => {
+      const o = order.toJSON();
+
+      o.orderItems = o.orderItems.map(item => {
+        const variant = item.variant || {};
+        const product = variant.product || {};
+        const images =
+          variant.productImages?.map(img => img.Image).filter(Boolean) || [];
+
+        return {
+          ...item,
+          product_name: product.name || null,
+          images,
+          primary_image: images.length > 0 ? images[0] : null,
+          variant_details: {
+            id: variant.id,
+            sku: variant.sku,
+            price: variant.price,
+            sale_price: variant.sale_price,
+            size: variant.size,
+            title: variant.title,
+          },
+        };
+      });
+
+      return o;
     });
 
-    res.status(200).json(orders);
+    res.status(200).json(formattedOrders);
   } catch (error) {
-    console.error(error);
+    console.error('Error fetching orders:', error);
     res.status(500).json({ error: error.message });
   }
 };
+
 
 // Assuming Express.js route
 

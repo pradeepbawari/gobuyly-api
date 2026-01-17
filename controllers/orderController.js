@@ -687,58 +687,106 @@ const getAllOrders = async (req, res) => {
   }
 };
 
+// const getAllOrdersAdmin = async (req, res) => {
+//   const { limit, offset, orderBy, filters } = req.body;
+
+//   try {
+//     const parsedLimit = limit ? parseInt(limit, 10) : 10;
+//     const parsedOffset = offset ? parseInt(offset, 10) : 0;
+//     const orderByCondition = [['createdAt', 'DESC']];
+//     const whereCondition = filters || {}; 
+
+//     // Fetch orders with pagination, ordering, and optional filtering
+//     const orders = await db.Orderwebsite.findAndCountAll({
+//       include: [
+//         {
+//           model: db.User,
+//           as: 'user',
+//           attributes: ['id', 'name', 'email', 'company', 'mobile_number'],
+//         },
+//       ],
+//       order: orderByCondition, // Apply the ordering condition
+//       where: whereCondition, // Apply the filters (or no filter if filters is null)
+//       limit: parsedLimit, // Apply pagination limit
+//       offset: parsedOffset, // Apply pagination offset
+//     });
+
+//     // If no orders are found, return a 404 error
+//     if (!orders || orders.rows.length === 0) {
+//       return res.status(404).json({ message: 'No orders found' });
+//     }
+
+//     // Map over the orders to return structured data
+//     res.status(200).json({
+//       orders: {
+//         count: orders.count, // Total number of orders
+//         rows: orders.rows.map((order) => ({
+//           id: order.id,
+//           user: order.user, // ✅ lowercase alias
+//           totalAmount: parseInt(order.total_amount),
+//           gstAmount: parseInt(order.gst_amount),
+//           order_status: order.status,
+//           payment_status: order.payment_status,
+//           grandTotal: parseInt(order.grand_total),
+//           offer: parseInt(order.offer),
+//           createdAt: order.createdAt,
+//         })),
+//       },
+//     });
+//   } catch (error) {
+//     // Catch any errors and return a 500 status
+//     console.error(error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
 const getAllOrdersAdmin = async (req, res) => {
-  const { limit, offset, orderBy, filters } = req.body;
+ try {
+    const { limit = 10, offset = 0 } = req.body;
 
-  try {
-    const parsedLimit = limit ? parseInt(limit, 10) : 10;
-    const parsedOffset = offset ? parseInt(offset, 10) : 0;
-    const orderByCondition = [['createdAt', 'DESC']];
-    const whereCondition = filters || {}; 
+    const parsedLimit = Number(limit);
+    const parsedOffset = Number(offset);
 
-    // Fetch orders with pagination, ordering, and optional filtering
     const orders = await db.Orderwebsite.findAndCountAll({
+      limit: parsedLimit,
+      offset: parsedOffset,
+      attributes: [
+        'id',
+        'order_id',
+        'status',
+        'payment_status',
+        'amount',
+        'created_at',
+      ],
       include: [
         {
           model: db.User,
           as: 'user',
-          attributes: ['id', 'name', 'email', 'company', 'mobile_number'],
+          attributes: ['id', 'name'],
         },
       ],
-      order: orderByCondition, // Apply the ordering condition
-      where: whereCondition, // Apply the filters (or no filter if filters is null)
-      limit: parsedLimit, // Apply pagination limit
-      offset: parsedOffset, // Apply pagination offset
+      order: [['id', 'DESC']],
     });
 
-    // If no orders are found, return a 404 error
-    if (!orders || orders.rows.length === 0) {
-      return res.status(404).json({ message: 'No orders found' });
-    }
-
-    // Map over the orders to return structured data
     res.status(200).json({
       orders: {
-        count: orders.count, // Total number of orders
-        rows: orders.rows.map((order) => ({
-          id: order.id,
-          user: order.user, // ✅ lowercase alias
-          totalAmount: parseInt(order.total_amount),
-          gstAmount: parseInt(order.gst_amount),
-          order_status: order.status,
-          payment_status: order.payment_status,
-          grandTotal: parseInt(order.grand_total),
-          offer: parseInt(order.offer),
-          createdAt: order.createdAt,
+        count: orders.count,
+        rows: orders.rows.map(o => ({
+          id: o.id,
+          orderNo: o.order_id || o.id,
+          customer: o.user?.name || 'Guest',
+          orderDate: o.created_at,
+          orderStatus: o.status,
+          paymentStatus: o.payment_status,
+          total: Number(o.amount),
         })),
       },
     });
   } catch (error) {
-    // Catch any errors and return a 500 status
-    console.error(error);
     res.status(500).json({ error: error.message });
   }
 };
+
 
 const getUserOrders = async (req, res) => {
   const { limit, offset, orderBy, filters } = req.body;
@@ -947,91 +995,365 @@ const getSingleOrder = async (req, res) => {
 };
 
 
+// const getSingleOrderAdmin = async (req, res) => {
+//   const { orderId } = req.body;
+
+//   if (!orderId) {
+//     return res.status(400).json({ message: "Order ID is required" });
+//   }
+//   try {
+//     const order = await db.Orderwebsite.findOne({
+//       where: { id: orderId },
+//       attributes: [
+//         "id",
+//         "amount",
+//         "address",
+//         "status",
+//         "payment_status",
+//         "order_id",
+//         "shipping"
+//       ],
+//       include: [
+//   {
+//     model: db.OrderWebsiteItems,
+//     as: 'orderItems',
+//     include: [
+//       {
+//         model: db.Variant,
+//         as: 'variantOrder',
+//         include: [
+//           {
+//             model: db.Product,
+//             as: 'product',
+//           },
+//         ],
+//       },
+//     ],
+//   },
+//   {
+//     model: db.User,
+//     as: 'user', // ✅ REQUIRED
+//     attributes: ['id', 'name', 'email', 'company', 'mobile_number'],
+//   },
+// ]
+
+//     });
+
+//     if (!order) {
+//       return res.status(404).json({ message: "Order not found" });
+//     }
+
+//     res.status(200).json({
+//       order: {
+//         id: order.id,
+//         user: order.User,
+//         totalAmount: Number(order.amount),
+//         status: order.status,
+//         payment_status: order.payment_status,
+//         grandTotal: Number(order.grand_total),
+//         offer: Number(order.offer),
+//         statusType: order.statusType,
+//         items: order.orderItems.map(item => {
+//           const variant = item.variantOrder;
+//           const product = variant?.product;
+
+//           return {
+//             id: item.id,
+//             variant_id: item.variant_id,
+//             product_id: product?.id || null,
+//             product_name: product?.name || null,
+//             company: product?.company || null,
+//             quantity: Number(item.quantity),
+//             sale_price: product ? Number(product.sale_price) : 0,
+//             price: product ? Number(product.price) : 0,
+//             gst: product ? Number(product.gst_rate) : 0,
+//             total: Number(item.total),
+//             offer: Number(item.offer),
+//             dimensions: item.dimensions,
+//             variant: variant
+//               ? {
+//                   id: variant.id,
+//                   stock: variant.stock,
+//                   sale_price: variant.sale_price,
+//                   dimensions: variant.dimensions,
+//                 }
+//               : null,
+//           };
+//         }),
+//         createdAt: order.createdAt,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error fetching order:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
 const getSingleOrderAdmin = async (req, res) => {
   const { orderId } = req.body;
 
   if (!orderId) {
-    return res.status(400).json({ message: "Order ID is required" });
+    return res.status(400).json({ message: 'Order ID required' });
   }
 
   try {
-    const order = await db.Order.findOne({
+    const order = await db.Orderwebsite.findOne({
       where: { id: orderId },
       attributes: [
-        "id", "total_amount", "gst_amount", "status", 
-        "payment_status", "grand_total", "offer", "createdAt", "statusType"
+        'id',
+        'order_id',
+        'status',
+        'payment_status',
+        'address',
+        'shipping',
+        'created_at',
       ],
       include: [
         {
-          model: db.OrderItem,
-          attributes: ["id", "quantity", "price", "gst", "dimensions", "total", "variantId", "offer"], // Include variant_id
-          include: [
-            {
-              model: db.Product,
-              attributes: ["id", "name", "company", "sale_price", "price", "gst_rate"],
-              required: false,
-            },
-          ],
+          model: db.User,
+          as: 'user',
+          attributes: ['name', 'email', 'mobile_number', 'company'],
         },
         {
-          model: db.User,
-          attributes: ["id", "name", "email", "company", "mobile_number"],
+          model: db.OrderWebsiteItems,
+          as: 'orderItems',
+          attributes: [
+            'id',
+            'variant_id',
+            'quantity',
+            'price',
+            'gst',
+            'total',
+            'sku',
+            'title',
+            'dimType',
+            'dimValue',
+            'dimunitName',
+            'status',
+            'payment_status',
+          ],
+          include: [
+            {
+              model: db.Variant,
+              as: 'variantOrder',
+              attributes: ['id', 'stock', 'sale_price'],
+              include: [
+                {
+                  model: db.Product,
+                  as: 'product',
+                  attributes: ['id', 'name', 'gst_rate'],
+                },
+              ],
+            },
+          ],
         },
       ],
     });
 
     if (!order) {
-      return res.status(404).json({ message: "Order not found" });
+      return res.status(404).json({ message: 'Order not found' });
     }
 
-    // Fetch variant details separately
-    const variantIds = order.OrderItems.map((item) => item.variant_id).filter(Boolean);
-
-    const variants = await db.Variant.findAll({
-      where: { id: variantIds },
-      attributes: ["id", "dimensions", "stock", "sale_price"],
-    });
-
-    const variantMap = variants.reduce((acc, variant) => {
-      acc[variant.id] = variant;
-      return acc;
-    }, {});
-
-    // Structure the response
-    res.status(200).json({
+    res.json({
       order: {
         id: order.id,
-        user: order.User,
-        totalAmount: parseInt(order.total_amount),
-        gstAmount: parseInt(order.gst_amount),
-        order_status: order.status,
+        orderNo: order.order_id,
+        status: order.status,
         payment_status: order.payment_status,
-        grandTotal: parseInt(order.grand_total),
-        offer: parseInt(order.offer),
-        statusType: order.statusType,
-        items: order.OrderItems.map((item) => ({
-          product_id: item.Product ? item.Product.id : null,
-          product_name: item.Product ? item.Product.name : null,
-          company: item.Product ? item.Product.company : null,
-          quantity: parseInt(item.quantity),
-          sale_price: parseInt(item.Product.sale_price),
-          price: parseInt(item.Product.price),
-          gst: parseInt(item.Product.gst_rate),
-          total: parseInt(item.total),
-          offer: parseInt(item.offer),
-          dimensions: item.dimensions,
-          variant: item.variantId || null, // Attach variant data
-          id: item.id,
+        createdAt: order.created_at,
+        customer: order.user,
+        shipping: order.shipping,
+        items: order.orderItems.map(i => ({
+          id: i.id,
+          product_name: i.title,
+          sku: i.sku,
+          status: i.status,
+          paymentStatus: i.payment_status,
+          dimension: `${i.dimType} ${i.dimValue} ${i.dimunitName}`,
+          quantity: i.quantity,
+          price: Number(i.price),
+          gst: Number(i.gst),
+          total: Number(i.total),
+          variant: i.variantOrder
+            ? {
+                id: i.variantOrder.id,
+                stock: i.variantOrder.stock,
+              }
+            : null,
         })),
-        createdAt: order.createdAt,
       },
     });
   } catch (error) {
-    console.error("Error fetching order:", error);
     res.status(500).json({ error: error.message });
   }
 };
 
+const ALLOWED_ITEM_STATUS = [
+  'PENDING',
+  'BOOKED',
+  'PACKED',
+  'SHIPPED',
+  'DELIVERED',
+  'CANCELLED'
+];
+
+const updateOrderAdmin = async (req, res) => {
+  const { id, status, payment_status, items } = req.body;
+
+  if (!id) {
+    return res.status(400).json({ message: 'Order ID is required' });
+  }
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ message: 'Order items are required' });
+  }
+
+  const ITEM_STATUS = [
+    'PENDING',
+    'BOOKED',
+    'PACKED',
+    'SHIPPED',
+    'DELIVERED',
+    'CANCELLED',
+    'RETURNED'
+  ];
+
+  const ORDER_STATUS = [...ITEM_STATUS];
+
+  const PAYMENT_STATUS = [
+    'PENDING',
+    'PAID',
+    'UNPAID',
+    'FREE',
+    'FAILED',
+    'RETURNED'
+  ];
+
+  const transaction = await db.sequelize.transaction();
+
+  try {
+    /* ---------- 1. Update items ---------- */
+    for (const item of items) {
+
+      if (!ITEM_STATUS.includes(item.status)) {
+        throw new Error(`Invalid item status: ${item.status}`);
+      }
+
+      const itemPaymentStatus =
+        item.paymentStatus ??
+        item.payment_status ??
+        item.payment_staus ??
+        'PENDING';
+
+      if (!PAYMENT_STATUS.includes(itemPaymentStatus)) {
+        throw new Error(`Invalid item payment status: ${itemPaymentStatus}`);
+      }
+
+      await db.OrderWebsiteItems.update(
+        {
+          status: item.status,
+          payment_status: itemPaymentStatus
+        },
+        {
+          where: { id: item.id, order_id: id },
+          transaction
+        }
+      );
+    }
+
+    /* ---------- 2. Count item statuses ---------- */
+    const totalItems = await db.OrderWebsiteItems.count({
+      where: { order_id: id },
+      transaction
+    });
+
+    const statusCounts = await db.OrderWebsiteItems.findAll({
+      attributes: [
+        'status',
+        [db.sequelize.fn('COUNT', db.sequelize.col('status')), 'count']
+      ],
+      where: { order_id: id },
+      group: ['status'],
+      raw: true,
+      transaction
+    });
+
+    const statusMap = Object.fromEntries(
+      statusCounts.map(s => [s.status, Number(s.count)])
+    );
+
+    /* ---------- 3. FINAL ORDER STATUS (FIXED) ---------- */
+    let finalStatus;
+
+    if (status) {
+      // ADMIN OVERRIDE — highest priority
+      finalStatus = status;
+    } else if (statusMap.RETURNED === totalItems) {
+      finalStatus = 'RETURNED';
+    } else if (statusMap.CANCELLED === totalItems) {
+      finalStatus = 'CANCELLED';
+    } else if (statusMap.DELIVERED === totalItems) {
+      finalStatus = 'DELIVERED';
+    } else if ((statusMap.SHIPPED || 0) > 0) {
+      finalStatus = 'SHIPPED';
+    } else if ((statusMap.BOOKED || 0) > 0) {
+      finalStatus = 'BOOKED';
+    } else {
+      finalStatus = 'PENDING';
+    }
+
+    if (!ORDER_STATUS.includes(finalStatus)) {
+      throw new Error(`Invalid order status: ${finalStatus}`);
+    }
+
+    /* ---------- 4. Payment aggregation ---------- */
+    const paymentCounts = await db.OrderWebsiteItems.findAll({
+      attributes: [
+        'payment_status',
+        [db.sequelize.fn('COUNT', db.sequelize.col('payment_status')), 'count']
+      ],
+      where: { order_id: id },
+      group: ['payment_status'],
+      raw: true,
+      transaction
+    });
+
+    const paymentMap = Object.fromEntries(
+      paymentCounts.map(p => [p.payment_status, Number(p.count)])
+    );
+
+    /* ---------- 5. FINAL PAYMENT STATUS (FIXED) ---------- */
+    let finalPaymentStatus =
+      payment_status ??
+      (paymentMap.PAID === totalItems ? 'PAID' : 'PENDING');
+
+    if ((paymentMap.RETURNED || 0) > 0) {
+      finalPaymentStatus = 'RETURNED';
+    }
+
+    if (!PAYMENT_STATUS.includes(finalPaymentStatus)) {
+      throw new Error(`Invalid payment status: ${finalPaymentStatus}`);
+    }
+
+    /* ---------- 6. Update main order ---------- */
+    await db.Orderwebsite.update(
+      {
+        status: finalStatus,
+        payment_status: finalPaymentStatus
+      },
+      { where: { id }, transaction }
+    );
+
+    await transaction.commit();
+
+    return res.json({ message: 'Order updated successfully' });
+
+  } catch (error) {
+    await transaction.rollback();
+    console.error(error);
+    return res.status(500).json({ message: error.message });
+  }
+};
 
 
-module.exports = { createOrder, updateOrder, deleteOrder, getOrder, getAllOrders, getUserOrders, createUserOrder, updateUserOrder, getSingleOrder, getAllOrdersAdmin, getSingleOrderAdmin, quotationUpdate };
+module.exports = { createOrder, updateOrder, deleteOrder, getOrder, getAllOrders, getUserOrders, createUserOrder, updateUserOrder, getSingleOrder, getAllOrdersAdmin, getSingleOrderAdmin, quotationUpdate, updateOrderAdmin };

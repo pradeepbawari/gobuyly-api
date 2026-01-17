@@ -361,5 +361,15 @@ db.Variant.hasMany(db.ProductImage, { foreignKey: 'product_id', as: 'productImag
 db.ProductImage.belongsTo(db.Variant, { foreignKey: 'product_id' }); // ProductImage belongs to Variant
 db.ProductImage.belongsTo(db.Image, { foreignKey: 'image_id' }); // ProductImage belongs to Image
 
+db.Orderwebsite.hasMany(db.OrderWebsiteItems, {
+  foreignKey: 'order_id',
+  as: 'items'
+});
+
+db.OrderWebsiteItems.belongsTo(db.Orderwebsite, {
+  foreignKey: 'order_id'
+});
+
+
 
 module.exports = db;

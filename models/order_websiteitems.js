@@ -84,6 +84,10 @@ module.exports = (sequelize, DataTypes) => {
       status: {
   type: DataTypes.ENUM('PENDING', 'BOOKED', 'PACKED', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'RETURNED'),
   allowNull: false
+},
+payment_status: {
+  type: DataTypes.ENUM('PENDING','PAID','UNPAID','FREE','FAILED','RETURNED'),
+  allowNull: false
 }
   }, {
     tableName: 'order_websiste_items',
