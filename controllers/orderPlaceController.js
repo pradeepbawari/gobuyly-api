@@ -337,6 +337,7 @@ const getOrders = async (req, res) => {
   try {
     const orders = await db.Orderwebsite.findAll({
   where: { user_id: userid },
+  order: [['id', 'DESC']],
   include: [
     {
       model: db.OrderWebsiteItems,
