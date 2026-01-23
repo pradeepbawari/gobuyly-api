@@ -716,108 +716,152 @@ const searchProducts = async (req, res) => {
     }
 
     // ✅ Search conditions
-    if (searchTerm) {
-  variantWhere[Op.and] = [{
-    [Op.or]: [
-      { displayTitle: { [Op.like]: `%${searchTerm}%` } },
-      { sku: { [Op.like]: `%${searchTerm}%` } },
-      { size: { [Op.like]: `%${searchTerm}%` } },
+ if (searchTerm) {
+  const words = searchTerm.split(/\s+/).filter(Boolean);
 
-      // ✅ SAFE JSON search
+  const orConditions = words.map(word => ({
+    [Op.or]: [
+      { displayTitle: { [Op.like]: `%${word}%` } },
+      { sku: { [Op.like]: `%${word}%` } },
+      { size: { [Op.like]: `%${word}%` } },
       Sequelize.and(
         Sequelize.where(
           Sequelize.fn('JSON_VALID', Sequelize.col('Variant.title')),
           1
         ),
         Sequelize.where(
-          Sequelize.fn(
-            'JSON_SEARCH',
-            Sequelize.col('Variant.title'),
-            'one',
-            searchTerm
-          ),
+          Sequelize.fn('JSON_SEARCH', Sequelize.col('Variant.title'), 'one', word),
           { [Op.ne]: null }
         )
       ),
-
-      // product name search
       Sequelize.where(
         Sequelize.col('product.name'),
-        { [Op.like]: `%${searchTerm}%` }
+        { [Op.like]: `%${word}%` }
       ),
+      // ✅ New: search inside brand name if brand is selected
+      selectedBrand
+        ? Sequelize.where(
+            Sequelize.col('company_id'), // replace with your Brand name column in Product table
+            { [Op.like]: `%${word}%` }
+          )
+        : null,
+    ].filter(Boolean) // remove null if brand not selected
+  }));
+
+  // Combine all words with AND (all words must appear somewhere)
+  variantWhere[Op.and] = orConditions;
+}
+const variants = await db.Variant.findAndCountAll({
+  attributes: [
+    'id', 'product_id', 'company_id', 'price', 'sale_price', 'stock',
+    'sku', 'size', 'title', 'displayTitle',
+  ],
+  where: variantWhere,
+  limit: parsedLimit,
+  offset: parsedOffset,
+  order: orderByCondition,
+  distinct: true,
+  include: [
+    {
+      model: db.Product,
+      as: 'product',
+      attributes: ['id', 'name', 'gst_rate', 'category_id', 'subcategory_id', 'createdAt'],
+      required: true,
+    },
+    {
+      model: db.ProductImage,
+      as: 'productImages',
+      attributes: ['id', 'image_id'],
+      include: {
+        model: db.Image,
+        attributes: ['id', 'image_url', 'public_id'],
+      },
+    },
+  ],
+});
+
+// Check if search returned zero rows
+let isFallback = false;
+let processedVariants = [];
+
+if (variants.count === 0) {
+  isFallback = true;
+
+  // Return default set (e.g., first 20 variants by price ASC)
+  const defaultVariants = await db.Variant.findAll({
+    attributes: [
+      'id', 'product_id', 'company_id', 'price', 'sale_price', 'stock',
+      'sku', 'size', 'title', 'displayTitle',
     ],
-  }];
+    limit: parsedLimit,
+    offset: parsedOffset,
+    order: [['price', 'ASC']],
+    include: [
+      { model: db.Product, as: 'product', attributes: ['id', 'name'] },
+      {
+        model: db.ProductImage,
+        as: 'productImages',
+        attributes: ['id', 'image_id'],
+        include: { model: db.Image, attributes: ['id', 'image_url', 'public_id'] },
+      },
+    ],
+  });
+
+  processedVariants = defaultVariants.map(v => {
+    const data = v.toJSON();
+    const images = data.productImages || [];
+    const productImages = images.map(i => i.Image).filter(Boolean);
+
+    let parsedTitle = {};
+    try {
+      parsedTitle = typeof data.title === 'string' ? JSON.parse(data.title) : data.title;
+    } catch {
+      parsedTitle = {};
+    }
+
+    return {
+      ...data,
+      title: parsedTitle,
+      product_name: data.product?.name || null,
+      images: productImages,
+      primary_image: productImages[0] || null,
+      product: data.product,
+    };
+  });
+
+} else {
+  // Normal search results
+  processedVariants = variants.rows.map(v => {
+    const data = v.toJSON();
+    const images = data.productImages || [];
+    const productImages = images.map(i => i.Image).filter(Boolean);
+
+    let parsedTitle = {};
+    try {
+      parsedTitle = typeof data.title === 'string' ? JSON.parse(data.title) : data.title;
+    } catch {
+      parsedTitle = {};
+    }
+
+    return {
+      ...data,
+      title: parsedTitle,
+      product_name: data.product?.name || null,
+      images: productImages,
+      primary_image: productImages[0] || null,
+      product: data.product,
+    };
+  });
 }
 
+res.json({
+  variants: {
+    count: processedVariants.length,
+    rows: processedVariants,
+  },
+  searchEmpty: isFallback, // 👈 flag if search returned zero results
+});
 
-    const variants = await db.Variant.findAndCountAll({
-      attributes: [
-        'id',
-        'product_id',
-        'company_id',
-        'price',
-        'sale_price',
-        'stock',
-        'sku',
-        'size',
-        'title',
-        'displayTitle',
-      ],
-      where: variantWhere,
-      limit: parsedLimit,
-      offset: parsedOffset,
-      order: orderByCondition,
-      distinct: true,
-      include: [
-        {
-          model: db.Product,
-          as: 'product',
-          attributes: ['id', 'name', 'gst_rate', 'category_id', 'subcategory_id', 'createdAt'],
-          required: true, // safe even without search
-        },
-        {
-          model: db.ProductImage,
-          as: 'productImages',
-          attributes: ['id', 'image_id'],
-          include: {
-            model: db.Image,
-            attributes: ['id', 'image_url', 'public_id'],
-          },
-        },
-      ],
-    });
-
-    const processedVariants = variants.rows.map(v => {
-      const data = v.toJSON();
-      let parsedTitle = {};
-
-      try {
-        parsedTitle = typeof data.title === 'string'
-          ? JSON.parse(data.title)
-          : data.title;
-      } catch {
-        parsedTitle = {};
-      }
-
-      const images = data.productImages || [];
-      const productImages = images.map(i => i.Image).filter(Boolean);
-
-      return {
-        ...data,
-        title: parsedTitle,
-        product_name: data.product?.name || null,
-        images: productImages,
-        primary_image: productImages[0] || null,
-        product: data.product, // 👈 full product object
-      };
-    });
-
-    res.json({
-      variants: {
-        count: variants.count,
-        rows: processedVariants,
-      },
-    });
   } catch (error) {
     console.error('Search error:', error);
     res.status(500).json({
