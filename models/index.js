@@ -71,160 +71,8 @@ db.dimensionUnit = require('./dimension_unit')(sequelize, DataTypes);
 db.Image = require('./image')(sequelize, DataTypes);
 db.Orderwebsite = require('./Order_website')(sequelize, DataTypes);
 db.OrderWebsiteItems = require('./order_websiteitems')(sequelize, DataTypes);
+db.ProductSubcategoryMap = require('./category_mapping')(sequelize, DataTypes);
 // Define relationships
-
-
-// /* =========================
-//    USER ↔ ORDER (Website)
-// ========================= */
-
-// db.Orderwebsite.belongsTo(db.User, {
-//   foreignKey: 'user_id',
-//   as: 'user',
-// });
-
-// db.User.hasMany(db.Orderwebsite, {
-//   foreignKey: 'user_id',
-//   as: 'orders',
-// });
-
-
-// /* =========================
-//    ORDER ↔ ORDER ITEMS
-// ========================= */
-
-// db.Orderwebsite.hasMany(db.OrderWebsiteItems, {
-//   foreignKey: 'order_id',
-//   as: 'orderItems',
-// });
-
-// db.OrderWebsiteItems.belongsTo(db.Orderwebsite, {
-//   foreignKey: 'order_id',
-// });
-
-
-// /* =========================
-//    ORDER ITEM ↔ VARIANT
-// ========================= */
-
-// db.OrderWebsiteItems.belongsTo(db.Variant, {
-//   foreignKey: 'variant_id',
-//   as: 'variant',
-// });
-
-// db.Variant.hasMany(db.OrderWebsiteItems, {
-//   foreignKey: 'variant_id',
-//   as: 'orderItems',
-// });
-
-
-// /* =========================
-//    VARIANT ↔ PRODUCT
-// ========================= */
-
-// db.Variant.belongsTo(db.Product, {
-//   foreignKey: 'product_id',
-//   as: 'product',
-// });
-
-// db.Product.hasMany(db.Variant, {
-//   foreignKey: 'product_id',
-//   as: 'variants',
-// });
-
-
-// /* =========================
-//    PRODUCT ↔ PRODUCT IMAGE
-// ========================= */
-
-// db.Product.hasMany(db.ProductImage, {
-//   foreignKey: 'product_id',
-//   as: 'productImages',
-//   onDelete: 'CASCADE',
-// });
-
-// db.ProductImage.belongsTo(db.Product, {
-//   foreignKey: 'product_id',
-//   as: 'product',
-// });
-
-
-// /* =========================
-//    IMAGE ↔ PRODUCT IMAGE
-// ========================= */
-
-// db.Image.hasMany(db.ProductImage, {
-//   foreignKey: 'image_id',
-// });
-
-// db.ProductImage.belongsTo(db.Image, {
-//   foreignKey: 'image_id',
-// });
-
-
-// /* =========================
-//    CATEGORY ↔ SUBCATEGORY
-// ========================= */
-
-// db.Category.hasMany(db.Subcategory, {
-//   foreignKey: 'category_id',
-//   as: 'subcategories',
-// });
-
-// db.Subcategory.belongsTo(db.Category, {
-//   foreignKey: 'category_id',
-//   as: 'category',
-// });
-
-// // Self-referencing subcategory
-// db.Subcategory.hasMany(db.Subcategory, {
-//   foreignKey: 'parent_id',
-//   as: 'children',
-// });
-
-// db.Subcategory.belongsTo(db.Subcategory, {
-//   foreignKey: 'parent_id',
-//   as: 'parent',
-// });
-
-
-// /* =========================
-//    MATERIAL ↔ VARIANT
-// ========================= */
-
-// db.Variant.belongsTo(db.materialsList, {
-//   foreignKey: 'materials',
-//   targetKey: 'id',
-//   as: 'materialDetail',
-// });
-
-// db.materialsList.hasMany(db.Variant, {
-//   foreignKey: 'materials',
-//   sourceKey: 'id',
-//   as: 'variants',
-// });
-
-
-// /* =========================
-//    DEALER ↔ PRODUCT (M:N)
-// ========================= */
-
-// db.Product.belongsToMany(db.Dealer, {
-//   through: 'product_dealers',
-//   foreignKey: 'product_id',
-//   otherKey: 'dealer_id',
-//   as: 'dealers',
-// });
-
-// db.Dealer.belongsToMany(db.Product, {
-//   through: 'product_dealers',
-//   foreignKey: 'dealer_id',
-//   otherKey: 'product_id',
-//   as: 'products',
-// });
-
-
-
 
 // ------- old one 25-1-20206 ----------------------------------
 
@@ -370,6 +218,41 @@ db.OrderWebsiteItems.belongsTo(db.Orderwebsite, {
   foreignKey: 'order_id'
 });
 
+db.ProductSubcategoryMap.belongsTo(db.Product, {
+  foreignKey: 'product_id',
+  onDelete: 'CASCADE',
+});
+
+db.ProductSubcategoryMap.belongsTo(db.Subcategory, {
+  foreignKey: 'subcategory_id',
+  onDelete: 'CASCADE',
+});
+
+db.Product.belongsToMany(db.Subcategory, {
+  through: 'product_subcategory_map',
+  foreignKey: 'product_id',
+});
+
+db.Subcategory.belongsToMany(db.Product, {
+  through: 'product_subcategory_map',
+  foreignKey: 'subcategory_id',
+});
+
+db.Subcategory.belongsTo(db.Category, {
+  foreignKey: 'category_id',
+});
+
+db.Product.belongsToMany(db.Subcategory, {
+  through: db.ProductSubcategoryMap,
+  foreignKey: 'product_id',
+  otherKey: 'subcategory_id',
+  as: 'subcategories',
+});
+
+db.Subcategory.belongsTo(db.Category, {
+  foreignKey: 'category_id',
+  as: 'category',
+});
 
 
 module.exports = db;

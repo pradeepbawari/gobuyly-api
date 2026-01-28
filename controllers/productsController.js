@@ -6,89 +6,98 @@ const subcategory = require("../models/subcategory");
 
 const createProducts = async (req, res) => {
   try {
-    const { 
-      name, 
-      stock, 
-      gst_rate, 
-      price, 
-      sale_price, 
-      category_id, 
-      dealer_id, 
-      company, 
+    const {
+      name,
+      stock,
+      gst_rate,
+      price,
+      sale_price,
+      dealer_id = '',
+      category_id = 0,
+      subcategory_id = 0,
+      company,
       discription,
-      variants,
-      subcategory_id
+      variants = [],
+      subcategory_ids = [],
     } = req.body;
 
     if (!name) {
-      return res.status(400).json({ error: 'Product name and at least one variant are required' });
+      return res.status(400).json({ error: 'Product name is required' });
     }
 
-    // 1. Create the product
-    const product = await db.Product.create({ 
-      name, 
-      stock, 
-      gst_rate, 
-      price, 
-      sale_price, 
-      category_id, 
-      dealer_id, 
+    /* 1️⃣ Create product (NO category/subcategory here) */
+    const product = await db.Product.create({
+      name,
+      stock,
+      gst_rate,
+      price,
+      sale_price,
       company,
+      dealer_id,
+      category_id,
+      subcategory_id,
       discription,
-      subcategory_id
     });
+
     const productId = product.id;
 
-    // 2. Handle dealer associations
-    if (dealer_id && dealer_id.length > 0) {
-      const productDealerAssociations = dealer_id.map((dealerId) => ({
+    /* 2️⃣ Map product → subcategories */
+    if (subcategory_ids.length > 0) {
+      const mappings = subcategory_ids.map((subId) => ({
+        product_id: productId,
+        subcategory_id: subId,
+      }));
+
+      await db.ProductSubcategoryMap.bulkCreate(mappings);
+    }
+
+    /* 3️⃣ Dealer mapping */
+    if (dealer_id?.length > 0) {
+      const dealerMappings = dealer_id.map((dealerId) => ({
         product_id: productId,
         dealer_id: dealerId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
       }));
-      await db.ProductDealers.bulkCreate(productDealerAssociations);
+
+      await db.ProductDealers.bulkCreate(dealerMappings);
     }
 
-    // 3. Process variants
-    if (productId &&variants || variants.length > 0) {
-      const variantPromises = variants.map(async (variant) => {
-        const { price, sale_price, stock, deleted, materials, colour, dimensions, sku, color_id, company_id, size, title, displayTitle } = variant;
-        // Create product variant
-        return db.Variant.create({
-          product_id: productId,
-          colour,
-          price,
-          sale_price,
-          stock,
-          materials,
-          deleted,
-          dimensions,
-          sku,
-          color_id,
-          company_id,
-		  size,
-		  title,
-      displayTitle
-        });              
-      });
-  
-      await Promise.all(variantPromises);  
+    /* 4️⃣ Variants */
+    if (variants.length > 0) {
+      await Promise.all(
+        variants.map((variant) =>
+          db.Variant.create({
+            product_id: productId,
+            colour: variant.colour,
+            price: variant.price,
+            sale_price: variant.sale_price,
+            stock: variant.stock,
+            materials: variant.materials,
+            deleted: variant.deleted,
+            dimensions: variant.dimensions,
+            sku: variant.sku,
+            color_id: variant.color_id,
+            company_id: variant.company_id,
+            size: variant.size,
+            title: variant.title,
+            displayTitle: variant.displayTitle,
+          })
+        )
+      );
     }
-    
+
     const productWithDealers = await fetchAfterUpdate(productId);
 
-    // Response
-    res.status(201).json({ 
-      message: 'Product created successfully', 
+    return res.status(201).json({
+      message: 'Product created successfully',
       productWithDealers,
     });
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 };
+
 
 const fetchAfterUpdate = async (productId) => {
   try {
@@ -130,72 +139,6 @@ const fetchAfterUpdate = async (productId) => {
   }
 };
 
-// const getAllProducts = async (req, res) => {
-//   const { limit, offset, orderBy, filters } = req.body;
-//   const parsedLimit = limit ? parseInt(limit, 10) : 10;
-//     const parsedOffset = offset ? parseInt(offset, 10) : 0;
-//     // const orderByCondition = [['createdAt', 'DESC']];
-//     const orderByCondition = [[orderBy[0].colId, orderBy[0].sort]];
-//     const whereCondition = filters || {}; 
-//   try {
-//     // Step 1: Fetch all products with associations
-//     const products = await db.Product.findAndCountAll({
-//       distinct: true,  // Ensure distinct count of products
-//       include: [
-//         {
-//           model: db.ProductImage,
-//           as: 'imagesT',
-//           attributes: ['id', 'image_url', 'public_id', 'product_id'],
-//         },
-//         {
-//           model: db.Category,
-//           as: 'category',
-//           attributes: ['id', 'name'],
-//           include: [
-//             {
-//               model: db.Subcategory,
-//               as: 'subcategories',
-//               attributes: ['id', 'name','parent_id'],
-//             },
-//           ]
-//         },
-        
-//       ],
-//       order: orderByCondition, // Apply the ordering condition
-//       where: whereCondition, // Apply the filters (or no filter if filters is null)
-//       limit: parsedLimit, // Apply pagination limit
-//       offset: parsedOffset, // Apply pagination offset
-//       distinct: true,  // Add this to fix duplicate count issue
-//       col: 'id' // Ensures distinct is applied correctly on primary key
-//     });
-    
-//     // Post-process each product to fetch dealers based on dealer_id string
-//     const productWithDealers = await Promise.all(
-//       products.rows.map(async (product) => {
-//         const dealerIds = product.dealer_id.split(',').map((id) => parseInt(id.trim())).filter((id) => !isNaN(id)); // Parse dealer_id string
-//         const dealers = await db.Dealer.findAll({
-//           where: {
-//             id: {
-//               [Op.in]: dealerIds, // Fetch all dealers with parsed IDs
-//             },
-//           },
-//           attributes: ['id', 'name', 'company', 'email', 'mobile_number', 'dealer_status'],
-//         });
-//         return { ...product.toJSON(), dealers }; // Add dealers to product
-//       })
-//     );
-// console.log(productWithDealers, 'hiiii')
-//     res.json({ products: {
-//         count: products.count,
-//         rows: productWithDealers
-//       }
-//     });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ error: 'Failed to fetch products' });
-//   }
-// };
-
 const getAllProducts = async (req, res) => {
   const { limit, offset, orderBy, filters } = req.body;
 
@@ -220,80 +163,149 @@ const getAllProducts = async (req, res) => {
           as: 'imagesT',
           attributes: ['id', 'image_url', 'public_id', 'product_id'],
         },
+
+        /* 🔑 Product → Subcategory (M:N) */
         {
-          model: db.Category,
-          as: 'category',
-          attributes: ['id', 'name'],
+          model: db.Subcategory,
+          through: { attributes: [] }, // hide mapping table
+          attributes: ['id', 'name', 'parent_id'],
+
           include: [
             {
-              model: db.Subcategory,
-              as: 'subcategories',
-              attributes: ['id', 'name', 'parent_id'],
-            }
-          ]
-        }
-      ]
+              model: db.Category,
+              attributes: ['id', 'name'],
+            },
+          ],
+        },
+      ],
     });
 
     res.json({
       products: {
         count: products.count,
-        rows: products.rows
-      }
+        rows: products.rows,
+      },
     });
-
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to fetch products' });
   }
 };
 
-
-
 const updateProducts = async (req, res) => {
+  const transaction = await db.sequelize.transaction();
+
   try {
-    const { id, name, stock, gst_rate, price, sale_price, category_id, dealer_id, company, discription, variants, subcategory_id } = req.body;
+    const {
+      id,
+      name,
+      stock,
+      gst_rate,
+      price,
+      sale_price,
+      company,
+      discription,
+      variants = [],
+      subcategory_ids = [],
+      dealer_id = [],
+    } = req.body;
 
     if (!id) {
       return res.status(400).json({ error: 'Product ID is required for updating.' });
     }
-    // 1. Update the main product details
-    const product = await db.Product.update(
-      { name, stock, gst_rate, price, sale_price, category_id, dealer_id, company, discription, subcategory_id },
-      { where: { id } }
+
+    /* 1️⃣ Update product (NO category / subcategory here) */
+    const [updatedRows] = await db.Product.update(
+      { name, stock, gst_rate, price, sale_price, company, discription },
+      { where: { id }, transaction }
     );
 
-    if (!product[0]) { // Sequelize returns an array, where [0] is the number of affected rows
+    if (!updatedRows) {
+      await transaction.rollback();
       return res.status(404).json({ error: 'Product not found.' });
     }
 
-    // 2. Update Variants
-    if (variants && variants.length > 0) {
-      for (const variant of variants) {
-        const { variant_id, price, sale_price, stock, deleted, materials, dimensions, colour, color_id, company_id, sku, size, title, displayTitle } = variant;
+    /* 2️⃣ Sync Subcategories (DELETE + INSERT) */
+    await db.ProductSubcategoryMap.destroy({
+      where: { product_id: id },
+      transaction,
+    });
 
-        // Check if the variant exists
-        if (variant_id) {
-          if (deleted === true) {
-            //console.log(`Deleting variant with ID: ${variant_id}`);
-            await db.Variant.destroy({ where: { id: variant_id } });
-          } else {
-            const existingVariant = await db.Variant.findOne({ where: { id: variant_id, product_id: id } });
-            if (existingVariant) {
-              // Update the existing variant
-              //console.log(`Updating variant with ID: ${variant_id}`);
-              await db.Variant.update(
-                { colour, price, sale_price, stock, dimensions, materials, color_id, company_id, sku, size, title, displayTitle },
-                { where: { id: variant_id } }
-              );
-            } else {
-              return res.status(400).json({ error: `Variant with ID ${variant_id} not found for this product.` });
-            }
-          }
+    if (subcategory_ids.length > 0) {
+      const subcategoryMappings = subcategory_ids.map((subId) => ({
+        product_id: id,
+        subcategory_id: subId,
+      }));
+
+      await db.ProductSubcategoryMap.bulkCreate(subcategoryMappings, {
+        transaction,
+      });
+    }
+
+    /* 3️⃣ Sync Dealers */
+    await db.ProductDealers.destroy({
+      where: { product_id: id },
+      transaction,
+    });
+
+    if (dealer_id.length > 0) {
+      const dealerMappings = dealer_id.map((dealerId) => ({
+        product_id: id,
+        dealer_id: dealerId,
+      }));
+
+      await db.ProductDealers.bulkCreate(dealerMappings, {
+        transaction,
+      });
+    }
+
+    /* 4️⃣ Handle Variants */
+    for (const variant of variants) {
+      const {
+        variant_id,
+        price,
+        sale_price,
+        stock,
+        deleted,
+        materials,
+        dimensions,
+        colour,
+        color_id,
+        company_id,
+        sku,
+        size,
+        title,
+        displayTitle,
+      } = variant;
+
+      if (variant_id) {
+        if (deleted === true) {
+          await db.Variant.destroy({
+            where: { id: variant_id, product_id: id },
+            transaction,
+          });
         } else {
-          // Create a new variant if `variant_id` is not provided
-          //console.log(`Creating new variant for product ID: ${id}`);
-          await db.Variant.create({
+          await db.Variant.update(
+            {
+              colour,
+              price,
+              sale_price,
+              stock,
+              dimensions,
+              materials,
+              color_id,
+              company_id,
+              sku,
+              size,
+              title,
+              displayTitle,
+            },
+            { where: { id: variant_id, product_id: id }, transaction }
+          );
+        }
+      } else {
+        await db.Variant.create(
+          {
             product_id: id,
             colour,
             price,
@@ -305,23 +317,33 @@ const updateProducts = async (req, res) => {
             color_id,
             company_id,
             sku,
-			size,
-			title,
-      displayTitle
-          });
-        }
+            size,
+            title,
+            displayTitle,
+          },
+          { transaction }
+        );
       }
     }
+
+    await transaction.commit();
+
     const productWithDealers = await fetchAfterUpdate(id);
-    res.status(200).json({ message: 'Product and variants updated successfully.', productWithDealers });
+
+    return res.status(200).json({
+      message: 'Product updated successfully.',
+      productWithDealers,
+    });
   } catch (error) {
+    await transaction.rollback();
     console.error(error);
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 };
 
-
 const deleteProducts = async (req, res) => {
+  const transaction = await db.sequelize.transaction();
+
   try {
     const { id } = req.params;
 
@@ -329,19 +351,25 @@ const deleteProducts = async (req, res) => {
       return res.status(400).json({ error: 'Product ID is required' });
     }
 
-    // 1. Delete Variants
-    await db.Variant.destroy({ where: { product_id: id } });
+    /* 1️⃣ Delete product (CASCADE will handle everything else) */
+    const deleted = await db.Product.destroy({
+      where: { id },
+      transaction,
+    });
 
-    // 2. Delete Dealer Associations
-    await db.ProductDealers.destroy({ where: { product_id: id } });
+    if (!deleted) {
+      await transaction.rollback();
+      return res.status(404).json({ error: 'Product not found' });
+    }
 
-    // 3. Delete Product
-    await db.Product.destroy({ where: { id } });
+    await transaction.commit();
 
-    const productWithDealers = [{id:parseInt(id)}]
-
-    res.status(200).json({ message: 'Product deleted successfully', productWithDealers});
+    res.status(200).json({
+      message: 'Product deleted successfully',
+      productWithDealers: [{ id: Number(id) }],
+    });
   } catch (error) {
+    await transaction.rollback();
     console.error(error);
     res.status(500).json({ error: error.message });
   }
@@ -597,6 +625,95 @@ const filterProductsNew2026 = async (req, res) => {
   }
 };
 
+// const filterProductsNew = async (req, res) => {
+//   try {
+//     const { limit = 100, offset = 0, orderBy, filters } = req.body;
+
+//     const parsedLimit = parseInt(limit, 10);
+//     const parsedOffset = parseInt(offset, 10);
+
+//     // Default ordering logic with fallback to Product's createdAt
+//     const orderByCondition = orderBy?.length
+//       ? [
+//           [
+//             orderBy[0]?.colId === 'price' ? 'price' : orderBy[0]?.colId,
+//             orderBy[0]?.sort || 'ASC',
+//           ],
+//         ]
+//       : [['price', 'ASC']]; // Default sorting by Product's createdAt
+
+//     // Construct dynamic filters for the product table
+//     let whereCondition = {};
+
+//     if (filters) {
+//       if (filters.parent_id === null) {
+//         whereCondition.subcategory_id = filters.id || filters.category_id || filters.subcategory_id;
+//       } else if (filters.parent_id !== undefined) {
+//         whereCondition.subcategory_id = filters.parent_id;
+//       } else {
+//         whereCondition = { ...filters };
+//       }
+//     }
+
+//     //console.log(orderByCondition); // Debugging filters
+
+//     // Fetch variants with product details and images in a single query
+//     const variants = await db.Variant.findAndCountAll({
+//       attributes: ['id', 'product_id', 'price', 'sale_price', 'stock', 'sku', 'size', 'title', 'displayTitle'],
+//       limit: parsedLimit,
+//       offset: parsedOffset,
+//       include: [
+//         {
+//           model: db.Product,
+//           as: 'product', // Alias for Product association
+//           attributes: ['id', 'name', 'category_id', 'gst_rate', 'subcategory_id', 'createdAt'], // Include only necessary fields
+//           where: whereCondition, // Apply the filters
+//         },
+//         {
+//           model: db.ProductImage,
+//           as: 'productImages', // Alias for ProductImage association
+//           attributes: ['id', 'image_id'],
+//           include: {
+//             model: db.Image,
+//             attributes: ['id', 'image_url', 'public_id'], // Only include necessary image fields
+//           },
+//         },
+//       ],
+//       order: orderByCondition, // Apply the dynamic ordering
+//     });
+
+//     // Process variants and format data efficiently
+//     const processedVariants = variants.rows.map(variant => {
+//       const variantData = variant.toJSON();
+//       const product = variantData.product || {};
+//       const images = variantData.productImages || [];
+//       const productImages = images.map(image => image.Image).filter(Boolean); // Extract image data
+
+//       return {
+//         ...variantData,
+//         // title: JSON.parse(variantData.title), // Assuming `title` is a JSON object
+//         title: variantData.title,
+//         product_name: product.name || null,
+//         images: productImages, // Return images for the variant
+//         primary_image: productImages.length > 0 ? productImages[0] : null, // First image as primary
+//       };
+//     });
+
+//     res.json({
+//       variants: {
+//         count: variants.count,
+//         rows: processedVariants,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error fetching variants:", error);
+//     res.status(500).json({
+//       error: 'Failed to fetch variants',
+//       message: error.message,
+//     });
+//   }
+// };
+
 const filterProductsNew = async (req, res) => {
   try {
     const { limit = 100, offset = 0, orderBy, filters } = req.body;
@@ -604,70 +721,76 @@ const filterProductsNew = async (req, res) => {
     const parsedLimit = parseInt(limit, 10);
     const parsedOffset = parseInt(offset, 10);
 
-    // Default ordering logic with fallback to Product's createdAt
     const orderByCondition = orderBy?.length
-      ? [
-          [
-            orderBy[0]?.colId === 'price' ? 'price' : orderBy[0]?.colId,
-            orderBy[0]?.sort || 'ASC',
-          ],
-        ]
-      : [['price', 'ASC']]; // Default sorting by Product's createdAt
+      ? [[orderBy[0].colId === 'price' ? 'price' : orderBy[0].colId, orderBy[0].sort || 'ASC']]
+      : [['price', 'ASC']];
 
-    // Construct dynamic filters for the product table
-    let whereCondition = {};
-
-    if (filters) {
-      if (filters.parent_id === null) {
-        whereCondition.subcategory_id = filters.id || filters.category_id || filters.subcategory_id;
-      } else if (filters.parent_id !== undefined) {
-        whereCondition.subcategory_id = filters.parent_id;
-      } else {
-        whereCondition = { ...filters };
-      }
+    let productWhere = {};
+    if (filters?.category_id) {
+      productWhere.category_id = filters.category_id;
     }
 
-    //console.log(orderByCondition); // Debugging filters
+    let subcategoryWhere = {};
+    if (filters?.subcategory_id || filters?.parent_id) {
+      subcategoryWhere.id = filters.subcategory_id || filters.parent_id;
+    }
 
-    // Fetch variants with product details and images in a single query
     const variants = await db.Variant.findAndCountAll({
-      attributes: ['id', 'product_id', 'price', 'sale_price', 'stock', 'sku', 'size', 'title', 'displayTitle'],
+      attributes: [
+        'id',
+        'product_id',
+        'price',
+        'sale_price',
+        'stock',
+        'sku',
+        'size',
+        'title',
+        'displayTitle',
+      ],
       limit: parsedLimit,
       offset: parsedOffset,
+      distinct: true,
       include: [
         {
           model: db.Product,
-          as: 'product', // Alias for Product association
-          attributes: ['id', 'name', 'category_id', 'gst_rate', 'subcategory_id', 'createdAt'], // Include only necessary fields
-          where: whereCondition, // Apply the filters
+          as: 'product',
+          attributes: ['id', 'name', 'category_id', 'gst_rate', 'createdAt'],
+          where: productWhere,
+          include: [
+            {
+              model: db.Subcategory,
+              as: 'subcategories',
+              attributes: ['id', 'name'],
+              through: { attributes: [] },
+              where: Object.keys(subcategoryWhere).length ? subcategoryWhere : undefined,
+              required: true,
+            },
+          ],
         },
         {
           model: db.ProductImage,
-          as: 'productImages', // Alias for ProductImage association
+          as: 'productImages',
           attributes: ['id', 'image_id'],
           include: {
             model: db.Image,
-            attributes: ['id', 'image_url', 'public_id'], // Only include necessary image fields
+            attributes: ['id', 'image_url', 'public_id'],
           },
         },
       ],
-      order: orderByCondition, // Apply the dynamic ordering
+      order: orderByCondition,
     });
 
-    // Process variants and format data efficiently
-    const processedVariants = variants.rows.map(variant => {
-      const variantData = variant.toJSON();
-      const product = variantData.product || {};
-      const images = variantData.productImages || [];
-      const productImages = images.map(image => image.Image).filter(Boolean); // Extract image data
+    const processedVariants = variants.rows.map((variant) => {
+      const v = variant.toJSON();
+      const product = v.product || {};
+      const images = v.productImages || [];
+      const productImages = images.map((img) => img.Image).filter(Boolean);
 
       return {
-        ...variantData,
-        // title: JSON.parse(variantData.title), // Assuming `title` is a JSON object
-        title: variantData.title,
+        ...v,
         product_name: product.name || null,
-        images: productImages, // Return images for the variant
-        primary_image: productImages.length > 0 ? productImages[0] : null, // First image as primary
+        images: productImages,
+        primary_image: productImages[0] || null,
       };
     });
 
@@ -678,7 +801,7 @@ const filterProductsNew = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching variants:", error);
+    console.error('Error fetching variants:', error);
     res.status(500).json({
       error: 'Failed to fetch variants',
       message: error.message,
@@ -872,44 +995,6 @@ res.json({
 };
 
 const filterUserProducts = async (req, res) => {
-  // const { limit, offset, orderBy, filters } = req.body;
-  // const orderByCondition = [[orderBy[0].colId, orderBy[0].sort]];
-  // try {
-  //   const products = await db.Product.findAll({
-  //     attributes: ["id", "name", "company", "category_id", "subcategory_id", "updatedAt", "createdAt"],
-  //     include: [
-  //       {
-  //         model: db.Variant,
-  //         as: "variants",
-  //         attributes: ["id", "product_id", "weight_id"],
-  //         required: false,
-  //         include: [{ model: db.Weight, as: "weight", attributes: ["weight", "unit"] }],
-  //       },
-  //       {
-  //         model: db.Category,
-  //         as: "category",
-  //         attributes: ["id", "name"],
-  //         required: false,
-  //       },
-  //     ],
-  //     // order: [["updatedAt", "DESC"]], // Sort for faster retrieval
-  //     order: ["product_id"],
-  //     raw: true, // Fetch data as plain JSON (faster)
-  //     nest: true, // Ensures nested JSON format
-  //   });
-
-  //   res.status(200).json({
-  //     products: {
-  //       message: "Products fetched successfully",
-  //       count: products.length,
-  //       rows: products,  
-  //     }
-  //   });
-  // } catch (error) {
-  //   console.error("Error fetching products:", error);
-  //   res.status(500).json({ error: "Failed to fetch products" });
-  // }
-
   const { limit, offset, orderBy, filters } = req.body;
     const orderByCondition = [[orderBy[0].colId, orderBy[0].sort]];
     const whereCondition = filters || {}; 
