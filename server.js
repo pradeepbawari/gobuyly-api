@@ -36,7 +36,7 @@ const corsOptions = {
   // production
    origin: ['https://gobuyly-api.vercel.app','http://gobuyly.com', 'http://www.gobuyly.com', 'http://api.gobuyly.com', 'https://gobuyly.com', 'https://www.gobuyly.com', 'https://api.gobuyly.com', 'https://www.api.gobuyly.com', 'https://securem.gobuyly.com', 'http://securem.gobuyly.com',], 
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization'], 
   credentials: true, // Required if using cookies or tokens
 };
 
