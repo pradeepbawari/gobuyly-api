@@ -34,7 +34,7 @@ const corsOptions = {
   // local
   // origin: ['http://gobuyly.com', 'http://admin.gobuyly.com', 'http://147.93.28.231', 'http://srv748278.hstgr.cloud', 'http://localhost:5173', 'http://localhost:5174','http://localhost:3000'], 
   // production
-   origin: ['https://gobuyly-api.vercel.app/','https://gobuyly-42brjgr4x-pradeepbawari25-gmailcoms-projects.vercel.app/','https://gobuyly-api-git-main-pradeepbawari25-gmailcoms-projects.vercel.app/','http://gobuyly.com', 'http://www.gobuyly.com', 'http://api.gobuyly.com', 'https://gobuyly.com', 'https://www.gobuyly.com', 'https://api.gobuyly.com', 'https://www.api.gobuyly.com', 'https://securem.gobuyly.com', 'http://securem.gobuyly.com',], 
+   origin: ['https://gobuyly-api.vercel.app/','https://gobuyly-frontend.vercel.app/','https://gobuyly-42brjgr4x-pradeepbawari25-gmailcoms-projects.vercel.app/','https://gobuyly-api-git-main-pradeepbawari25-gmailcoms-projects.vercel.app/','http://gobuyly.com', 'http://www.gobuyly.com', 'http://api.gobuyly.com', 'https://gobuyly.com', 'https://www.gobuyly.com', 'https://api.gobuyly.com', 'https://www.api.gobuyly.com', 'https://securem.gobuyly.com', 'http://securem.gobuyly.com',], 
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'], 
   credentials: true, // Required if using cookies or tokens
